@@ -4,11 +4,5 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes:
-  - enabled: 1
-    path: Assets/ScenesX/Jankec_Mihanovic_Tuheljske_Toplice.unity
-    guid: 6c79e86b68a761b4c875f9f8a7801e62
-  - enabled: 0
-    path: Assets/Scenes/scena.unity
-    guid: f0df67bdd747b834a9d322e244305b89
+  m_Scenes: []
   m_configObjects: {}
