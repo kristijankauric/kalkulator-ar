@@ -6,9 +6,8 @@ using UnityEditor;
 
 public class MainController : MonoBehaviour
 {
-    private const string KOpenClipName = "CalculatorOpen";
-    private const string KFallbackClipName = "Take 001";
     [SerializeField] private int m_TargetFrameRate = 30;
+    [SerializeField] private GameObject m_DigitronPrefab;
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
     private bool m_EnableEditorInstantPreview = true;
@@ -20,7 +19,9 @@ public class MainController : MonoBehaviour
     private float m_EditorPreviewScaleMultiplier = 1.3f;
 
     private const string KDigitronResourcePath = "Digitron/DB_801_03";
-    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/DB_801_03.fbx";
+#if UNITY_EDITOR
+    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx";
+#endif
     private const string KDigitronRootName = "Digitron Calculator Root";
     private const string KDigitronModelName = "Digitron Model";
     private const string KEditorPreviewCameraName = "Editor Preview Camera";
@@ -43,7 +44,7 @@ public class MainController : MonoBehaviour
 #if UNITY_EDITOR
         if (Application.isPlaying && m_EnableDigitronMode && m_EnableEditorInstantPreview)
         {
-            CleanupLegacyEditorPreviewObjects();
+            CleanupExtraDigitronSceneObjects();
             PrepareEditorPreviewScene();
             CacheDigitronParent();
             SetupEditorPreviewCamera();
@@ -89,6 +90,14 @@ public class MainController : MonoBehaviour
             return;
         }
 
+#if UNITY_EDITOR
+        if (Application.isPlaying && m_EnableEditorInstantPreview)
+        {
+            m_DigitronParent = transform;
+            return;
+        }
+#endif
+
         var anchor = FindSceneGameObject("Jankec Anchor");
         if (anchor)
         {
@@ -132,7 +141,8 @@ public class MainController : MonoBehaviour
         }
 
         var digitronPrefab = LoadDigitronPrefab();
-        if (!digitronPrefab)
+        var modelInstance = TryUseExistingEditorPreview(digitronPrefab);
+        if (!modelInstance && !digitronPrefab)
         {
             Debug.LogError($"Digitron prefab not found. Checked editor asset at '{KDigitronEditorAssetPath}' and Resources/{KDigitronResourcePath}");
             return;
@@ -143,8 +153,16 @@ public class MainController : MonoBehaviour
         digitronRoot.transform.localPosition = GetDigitronSpawnLocalPosition();
         digitronRoot.transform.localRotation = GetDigitronSpawnLocalRotation();
 
-        var modelInstance = Instantiate(digitronPrefab, digitronRoot.transform, false);
-        modelInstance.name = KDigitronModelName;
+        if (!modelInstance)
+        {
+            modelInstance = Instantiate(digitronPrefab, digitronRoot.transform, false);
+            modelInstance.name = KDigitronModelName;
+        }
+        else
+        {
+            modelInstance.transform.SetParent(digitronRoot.transform, false);
+            modelInstance.name = KDigitronModelName;
+        }
 
         m_DigitronController = digitronRoot.AddComponent<DigitronCalculatorController>();
         m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize());
@@ -227,14 +245,16 @@ public class MainController : MonoBehaviour
 
     private GameObject LoadDigitronPrefab()
     {
-#if UNITY_EDITOR
-        if (Application.isPlaying && m_EnableEditorInstantPreview)
+        if (m_DigitronPrefab)
         {
-            var editorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(KDigitronEditorAssetPath);
-            if (editorPrefab && PrefabHasOpenAnimation(KDigitronEditorAssetPath))
-            {
-                return editorPrefab;
-            }
+            return m_DigitronPrefab;
+        }
+
+#if UNITY_EDITOR
+        var editorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(KDigitronEditorAssetPath);
+        if (editorPrefab)
+        {
+            return editorPrefab;
         }
 #endif
 
@@ -242,19 +262,36 @@ public class MainController : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    private static bool PrefabHasOpenAnimation(string assetPath)
+    private GameObject TryUseExistingEditorPreview(GameObject preferredPrefab)
     {
-        var assets = AssetDatabase.LoadAllAssetsAtPath(assetPath);
-        foreach (var asset in assets)
+        if (!Application.isPlaying || !m_EnableEditorInstantPreview)
         {
-            if (asset is AnimationClip clip &&
-                (clip.name == KOpenClipName || clip.name == KFallbackClipName))
+            return null;
+        }
+
+        var existingPreview = FindSceneGameObject(KLegacyEditorPreviewName);
+        if (!existingPreview)
+        {
+            return null;
+        }
+
+        existingPreview.SetActive(true);
+        var renderers = existingPreview.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+        {
+            return null;
+        }
+
+        if (preferredPrefab)
+        {
+            var previewSource = PrefabUtility.GetCorrespondingObjectFromSource(existingPreview);
+            if (previewSource == preferredPrefab)
             {
-                return true;
+                return existingPreview;
             }
         }
 
-        return false;
+        return existingPreview;
     }
 
     private void HidePlacementUiForEditorPreview()
@@ -312,9 +349,18 @@ public class MainController : MonoBehaviour
         }
 
         var cameraTransform = cameraObject.transform;
-        var targetTransform = m_DigitronController.transform;
-        var focusPoint = targetTransform.position + m_EditorCameraLookOffset;
-        cameraTransform.position = targetTransform.position + m_EditorCameraOffset;
+        var modelBounds = m_DigitronController.GetWorldBounds();
+        var focusPoint = modelBounds.center + m_EditorCameraLookOffset;
+        var viewDirection = m_EditorCameraOffset.sqrMagnitude > 0.0001f
+            ? m_EditorCameraOffset.normalized
+            : new Vector3(0f, 0f, -1f);
+        var verticalHalfFov = cameraObject.fieldOfView * 0.5f * Mathf.Deg2Rad;
+        var horizontalHalfFov = Mathf.Atan(Mathf.Tan(verticalHalfFov) * cameraObject.aspect);
+        var distanceForHeight = modelBounds.extents.y / Mathf.Max(Mathf.Tan(verticalHalfFov), 0.01f);
+        var distanceForWidth = modelBounds.extents.x / Mathf.Max(Mathf.Tan(horizontalHalfFov), 0.01f);
+        var distance = Mathf.Max(distanceForHeight, distanceForWidth, modelBounds.extents.z) * m_EditorCameraDistancePadding;
+        distance = Mathf.Max(distance, 0.35f);
+        cameraTransform.position = focusPoint + (viewDirection * distance);
         cameraTransform.LookAt(focusPoint);
     }
 
@@ -402,6 +448,35 @@ public class MainController : MonoBehaviour
             {
                 Object.DestroyImmediate(candidate.gameObject);
             }
+        }
+    }
+
+    private static void CleanupExtraDigitronSceneObjects()
+    {
+        var transforms = Resources.FindObjectsOfTypeAll<Transform>();
+        foreach (var candidate in transforms)
+        {
+            if (candidate.hideFlags != HideFlags.None)
+            {
+                continue;
+            }
+
+            if (!candidate.gameObject.scene.IsValid())
+            {
+                continue;
+            }
+
+            if (candidate.parent != null)
+            {
+                continue;
+            }
+
+            if (candidate.name != "db801-novo-odvojene-tipke")
+            {
+                continue;
+            }
+
+            Object.DestroyImmediate(candidate.gameObject);
         }
     }
 
