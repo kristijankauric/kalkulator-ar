@@ -54,6 +54,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KFrontSurfaceDepth = 0.235f;
     private const float KFrontSurfaceOffset = 0.02f;
     private const float KLampScale = 0.028f;
+    private const float KDisplayMaskDepthOffset = 0.006f;
     private const float KMinimumProjectedKeySize = 10f;
     private const string KDisplayFontAssetPath = "Assets/Models/digital-7 (mono).ttf";
     private const float KKeypadMinX = 0.205f;
@@ -73,8 +74,8 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private static readonly DisplayLayoutData DisplayLayout = new DisplayLayoutData
     {
-        NormalizedAnchor = new Vector3(0.635f, 0.783f, KFrontSurfaceDepth),
-        NormalizedSize = new Vector2(0.26f, 0.065f),
+        NormalizedAnchor = new Vector3(0.665f, 0.775f, KFrontSurfaceDepth),
+        NormalizedSize = new Vector2(0.34f, 0.085f),
     };
 
     private static Vector3 KeypadAnchor(float x, float y)
@@ -94,14 +95,14 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private static readonly KeyLayoutData[] KeyLayouts =
     {
-        new KeyLayoutData { KeyId = DigitronKeyId.K, Name = "K", NormalizedAnchor = KeypadAnchor(0.08f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
-        new KeyLayoutData { KeyId = DigitronKeyId.F, Name = "F", NormalizedAnchor = KeypadAnchor(0.34f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
-        new KeyLayoutData { KeyId = DigitronKeyId.ClearEntry, Name = "CE", NormalizedAnchor = KeypadAnchor(0.60f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
-        new KeyLayoutData { KeyId = DigitronKeyId.ClearAll, Name = "C", NormalizedAnchor = KeypadAnchor(0.79f, 0.92f), NormalizedSize = KeypadSize(0.12f, 0.10f) },
+        new KeyLayoutData { KeyId = DigitronKeyId.F, Name = "F", NormalizedAnchor = KeypadAnchor(0.08f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
+        new KeyLayoutData { KeyId = DigitronKeyId.ClearEntry, Name = "CE", NormalizedAnchor = KeypadAnchor(0.34f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
+        new KeyLayoutData { KeyId = DigitronKeyId.ClearAll, Name = "C", NormalizedAnchor = KeypadAnchor(0.60f, 0.92f), NormalizedSize = KeypadSize(0.12f, 0.10f) },
+        new KeyLayoutData { KeyId = DigitronKeyId.Equals, Name = "=", NormalizedAnchor = KeypadAnchor(0.96f, 0.92f), NormalizedSize = KeypadSize(0.09f, 0.10f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Seven, Name = "7", NormalizedAnchor = KeypadAnchor(0.08f, 0.68f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Eight, Name = "8", NormalizedAnchor = KeypadAnchor(0.34f, 0.68f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Nine, Name = "9", NormalizedAnchor = KeypadAnchor(0.60f, 0.68f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
-        new KeyLayoutData { KeyId = DigitronKeyId.MinusOrEquals, Name = "-=", NormalizedAnchor = KeypadAnchor(0.96f, 0.68f), NormalizedSize = KeypadSize(0.09f, 0.13f) },
+        new KeyLayoutData { KeyId = DigitronKeyId.Subtract, Name = "-", NormalizedAnchor = KeypadAnchor(0.96f, 0.68f), NormalizedSize = KeypadSize(0.09f, 0.13f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Four, Name = "4", NormalizedAnchor = KeypadAnchor(0.08f, 0.45f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Five, Name = "5", NormalizedAnchor = KeypadAnchor(0.34f, 0.45f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
         new KeyLayoutData { KeyId = DigitronKeyId.Six, Name = "6", NormalizedAnchor = KeypadAnchor(0.60f, 0.45f), NormalizedSize = KeypadSize(0.11f, 0.13f) },
@@ -117,7 +118,9 @@ public class DigitronCalculatorController : MonoBehaviour
     };
 
     private readonly Dictionary<string, DigitronHotspotMarker> m_HotspotMarkers = new Dictionary<string, DigitronHotspotMarker>();
+    private readonly Dictionary<string, Transform> m_HotspotAnchors = new Dictionary<string, Transform>();
     private readonly List<DigitronKeyHitTarget> m_KeyTargets = new List<DigitronKeyHitTarget>();
+    private readonly Dictionary<Transform, Coroutine> m_KeyPressRoutines = new Dictionary<Transform, Coroutine>();
     private readonly DigitronRuntime m_Runtime = new DigitronRuntime();
 
     private GameObject m_ModelInstance;
@@ -142,10 +145,23 @@ public class DigitronCalculatorController : MonoBehaviour
     private GUIStyle m_DisplayStyle;
     private Renderer m_LampRenderer;
     private Material m_LampMaterial;
+    private Renderer m_DisplayMaskRenderer;
+    private Material m_DisplayMaskMaterial;
+    private Transform m_DisplayAnchor;
+    private TextMesh m_DisplayText;
+    private Font m_DisplayFont;
+    private Renderer m_ModelDisplayTextRenderer;
+    private Transform m_ModelDisplayTextTransform;
+    private TextMesh m_ModelDisplayTextMesh;
+    private Vector2 m_DisplayWorldSize = new Vector2(0.165f, 0.048f);
+    private readonly List<Renderer> m_HiddenDisplayRenderers = new List<Renderer>();
     private Coroutine m_FallbackRoutine;
     private Transform m_FrontCoverTransform;
     private Quaternion m_FrontCoverClosedRotation;
     private Quaternion m_FrontCoverOpenRotation;
+    private Transform m_PowerSwitchTransform;
+    private Vector3 m_PowerSwitchOnLocalPosition;
+    private Vector3 m_PowerSwitchOffLocalPosition;
 
     public void Initialize(GameObject modelInstance, Camera targetCamera, float targetSize)
     {
@@ -164,7 +180,11 @@ public class DigitronCalculatorController : MonoBehaviour
         TryPrepareAnimation();
         TryPrepareManualOpenTransform();
         ApplyClosedPose();
+        EnsureDisplayAnchor();
+        EnsureDisplayText();
         EnsureLampVisual();
+        EnsureDisplayMask();
+        EnsureHotspotAnchors();
         RebuildKeyTargets();
         RebuildHotspotMarkers();
         ResetCalculatorRuntime();
@@ -184,6 +204,8 @@ public class DigitronCalculatorController : MonoBehaviour
             m_Animator.enabled = false;
         }
         ApplyClosedPose();
+        EnsureDisplayAnchor();
+        EnsureDisplayText();
         ResetCalculatorRuntime();
         RebuildKeyTargets();
         SetHotspotsVisible(false);
@@ -202,7 +224,11 @@ public class DigitronCalculatorController : MonoBehaviour
             m_Animator.enabled = false;
         }
         RecalculateBounds();
+        EnsureDisplayAnchor();
+        EnsureDisplayText();
         EnsureLampVisual();
+        EnsureDisplayMask();
+        EnsureHotspotAnchors();
         RebuildKeyTargets();
         RebuildHotspotMarkers();
         RefreshCalculatorPresentation();
@@ -228,6 +254,27 @@ public class DigitronCalculatorController : MonoBehaviour
         RefreshCalculatorPresentation();
     }
 
+    public void HandlePhysicalKeyTargetPressed(DigitronKeyHitTarget keyTarget)
+    {
+        if (keyTarget == null || m_State != DigitronState.PlacedClosed)
+        {
+            return;
+        }
+
+        HandleKeyPress(keyTarget.KeyId);
+        if (keyTarget.PressTarget != null)
+        {
+            if (m_KeyPressRoutines.TryGetValue(keyTarget.PressTarget, out var runningRoutine) && runningRoutine != null)
+            {
+                StopCoroutine(runningRoutine);
+            }
+
+            keyTarget.PressTarget.localPosition = keyTarget.RestLocalPosition;
+            var routine = StartCoroutine(AnimatePhysicalKeyPress(keyTarget));
+            m_KeyPressRoutines[keyTarget.PressTarget] = routine;
+        }
+    }
+
     private void Update()
     {
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
@@ -240,11 +287,6 @@ public class DigitronCalculatorController : MonoBehaviour
         if (!m_ModelInstance || !m_TargetCamera || m_State == DigitronState.Unplaced) return;
         EnsureGuiStyles();
         if (m_State == DigitronState.PlacedClosed || m_State == DigitronState.Opened) DrawToggleButton();
-        if (m_State == DigitronState.PlacedClosed)
-        {
-            DrawProjectedDisplay();
-            if (!m_UsePhysicalKeyTargets) DrawProjectedCalculatorPad();
-        }
         DrawInfoBox();
     }
 
@@ -268,47 +310,6 @@ public class DigitronCalculatorController : MonoBehaviour
         GUILayout.Space(10f);
         if (GUILayout.Button("Zatvori opis")) m_SelectedHotspotId = null;
         GUILayout.EndArea();
-    }
-
-    private void DrawProjectedDisplay()
-    {
-        if (!m_Runtime.IsPoweredOn || string.IsNullOrEmpty(m_Runtime.DisplayText)) return;
-        if (!TryGetProjectedRect(DisplayLayout.NormalizedAnchor, DisplayLayout.NormalizedSize, out var rect)) return;
-        GUI.Label(rect, m_Runtime.DisplayText, m_DisplayStyle);
-    }
-
-    private void DrawProjectedCalculatorPad()
-    {
-        var previousColor = GUI.color;
-        GUI.color = new Color(1f, 1f, 1f, 0.42f);
-        foreach (var keyLayout in KeyLayouts)
-        {
-            if (!TryGetProjectedRect(keyLayout.NormalizedAnchor, keyLayout.NormalizedSize, out var rect)) continue;
-            if (GUI.Button(rect, keyLayout.Name, m_KeyButtonStyle)) HandleKeyPress(keyLayout.KeyId);
-        }
-        GUI.color = previousColor;
-    }
-
-    private bool TryGetProjectedRect(Vector3 normalizedAnchor, Vector2 normalizedSize, out Rect rect)
-    {
-        var anchorLocal = GetLocalPointForNormalizedAnchor(normalizedAnchor);
-        var halfSizeLocal = new Vector3(m_ModelLocalBounds.size.x * normalizedSize.x * 0.5f, m_ModelLocalBounds.size.y * normalizedSize.y * 0.5f, 0f);
-        var topLeftWorld = m_ModelInstance.transform.TransformPoint(anchorLocal + new Vector3(-halfSizeLocal.x, halfSizeLocal.y, 0f));
-        var bottomRightWorld = m_ModelInstance.transform.TransformPoint(anchorLocal + new Vector3(halfSizeLocal.x, -halfSizeLocal.y, 0f));
-        var topLeftScreen = m_TargetCamera.WorldToScreenPoint(topLeftWorld);
-        var bottomRightScreen = m_TargetCamera.WorldToScreenPoint(bottomRightWorld);
-        if (topLeftScreen.z <= 0f || bottomRightScreen.z <= 0f)
-        {
-            rect = default;
-            return false;
-        }
-
-        rect = Rect.MinMaxRect(
-            Mathf.Min(topLeftScreen.x, bottomRightScreen.x),
-            Screen.height - Mathf.Max(topLeftScreen.y, bottomRightScreen.y),
-            Mathf.Max(topLeftScreen.x, bottomRightScreen.x),
-            Screen.height - Mathf.Min(topLeftScreen.y, bottomRightScreen.y));
-        return rect.width > KMinimumProjectedKeySize && rect.height > KMinimumProjectedKeySize;
     }
 
     private void ToggleOpenState()
@@ -657,6 +658,196 @@ public class DigitronCalculatorController : MonoBehaviour
         return m_ModelInstance.transform.TransformDirection(Vector3.forward);
     }
 
+    private void EnsureDisplayAnchor()
+    {
+        if (m_ModelDisplayTextRenderer == null)
+        {
+            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (!child.name.ToLowerInvariant().Contains("textplus"))
+                {
+                    continue;
+                }
+
+                m_ModelDisplayTextTransform = child;
+                m_ModelDisplayTextRenderer = child.GetComponent<Renderer>();
+                if (m_ModelDisplayTextRenderer != null)
+                {
+                    break;
+                }
+            }
+        }
+
+        m_ModelDisplayTextMesh = null;
+
+        if (m_DisplayAnchor == null)
+        {
+            var anchor = new GameObject("Digitron Display Anchor");
+            anchor.transform.SetParent(m_ModelInstance.transform, false);
+            m_DisplayAnchor = anchor.transform;
+        }
+
+        if (m_HiddenDisplayRenderers.Count == 0)
+        {
+            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (!child.name.ToLowerInvariant().Contains("textplus"))
+                {
+                    continue;
+                }
+
+                if (m_ModelDisplayTextTransform == null)
+                {
+                    m_ModelDisplayTextTransform = child;
+                    m_ModelDisplayTextRenderer = child.GetComponent<Renderer>();
+                }
+
+                var textMesh = child.GetComponent<TextMesh>();
+                if (textMesh != null && m_ModelDisplayTextMesh == null)
+                {
+                    m_ModelDisplayTextMesh = textMesh;
+                }
+
+                foreach (var renderer in child.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer == m_ModelDisplayTextRenderer)
+                    {
+                        continue;
+                    }
+
+                    if (!m_HiddenDisplayRenderers.Contains(renderer))
+                    {
+                        m_HiddenDisplayRenderers.Add(renderer);
+                    }
+                }
+
+                if (textMesh != null)
+                {
+                    textMesh.text = string.Empty;
+                }
+            }
+        }
+
+        foreach (var renderer in m_HiddenDisplayRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.enabled = false;
+            }
+        }
+
+        if (m_ModelDisplayTextRenderer != null)
+        {
+            var localBounds = CalculateRendererLocalBounds(m_ModelDisplayTextRenderer);
+            m_DisplayWorldSize = new Vector2(
+                Mathf.Max(localBounds.size.x * 1.35f, 0.16f),
+                Mathf.Max(localBounds.size.y * 1.45f, 0.05f));
+        }
+
+        if (m_ModelDisplayTextTransform != null)
+        {
+            var anchorParent = m_ModelDisplayTextTransform.parent != null
+                ? m_ModelDisplayTextTransform.parent
+                : m_ModelInstance.transform;
+
+            m_DisplayAnchor.SetParent(anchorParent, false);
+            m_DisplayAnchor.localPosition = m_ModelDisplayTextTransform.localPosition;
+            m_DisplayAnchor.localRotation = m_ModelDisplayTextTransform.localRotation;
+            m_DisplayAnchor.localScale = m_ModelDisplayTextTransform.localScale;
+            return;
+        }
+        else
+        {
+            m_DisplayAnchor.SetParent(m_ModelInstance.transform, false);
+            m_DisplayAnchor.position = GetWorldPointForNormalizedAnchor(DisplayLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * 0.004f);
+            m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
+        }
+        m_DisplayAnchor.localScale = Vector3.one;
+    }
+
+    private void EnsureDisplayText()
+    {
+        if (m_ModelDisplayTextMesh != null)
+        {
+            m_DisplayText = m_ModelDisplayTextMesh;
+        }
+        else
+        {
+            if (m_DisplayAnchor == null)
+            {
+                return;
+            }
+
+            if (m_DisplayText == null)
+            {
+                var textObject = new GameObject("Digitron Display Text");
+                textObject.transform.SetParent(m_DisplayAnchor, false);
+                m_DisplayText = textObject.AddComponent<TextMesh>();
+                var renderer = m_DisplayText.GetComponent<Renderer>();
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                renderer.sortingOrder = 50;
+            }
+
+            m_DisplayText.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
+            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            m_DisplayText.transform.localScale = Vector3.one;
+        }
+
+        if (m_DisplayFont == null)
+        {
+#if UNITY_EDITOR
+            var font = AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
+            if (font != null)
+            {
+                m_DisplayFont = font;
+            }
+#endif
+        }
+
+        m_DisplayText.anchor = TextAnchor.MiddleCenter;
+        m_DisplayText.alignment = TextAlignment.Center;
+        m_DisplayText.fontSize = 128;
+        m_DisplayText.characterSize = 0.0052f;
+        m_DisplayText.color = new Color(1f, 0.9f, 0.82f, 1f);
+
+        if (m_DisplayFont != null)
+        {
+            m_DisplayText.font = m_DisplayFont;
+            m_DisplayText.GetComponent<MeshRenderer>().material = m_DisplayFont.material;
+        }
+
+        UpdateDisplayText();
+    }
+
+    private void UpdateDisplayText()
+    {
+        if (m_DisplayText == null)
+        {
+            return;
+        }
+
+        m_DisplayText.text = m_Runtime.IsPoweredOn ? m_Runtime.DisplayText : string.Empty;
+        m_DisplayText.GetComponent<MeshRenderer>().enabled = true;
+    }
+
+    private void EnsureHotspotAnchors()
+    {
+        foreach (var hotspot in Hotspots)
+        {
+            if (m_HotspotAnchors.ContainsKey(hotspot.Id) && m_HotspotAnchors[hotspot.Id] != null)
+            {
+                continue;
+            }
+
+            var anchorObject = new GameObject($"Hotspot Anchor {hotspot.Id}");
+            anchorObject.transform.SetParent(m_ModelInstance.transform, false);
+            anchorObject.transform.position = GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
+            anchorObject.transform.rotation = m_ModelInstance.transform.rotation;
+            m_HotspotAnchors[hotspot.Id] = anchorObject.transform;
+        }
+    }
+
     private void EnsureLampVisual()
     {
         if (m_LampRenderer == null)
@@ -677,6 +868,34 @@ public class DigitronCalculatorController : MonoBehaviour
         m_LampRenderer.transform.position = GetWorldPointForNormalizedAnchor(new Vector3(0.815f, 0.63f, KFrontSurfaceDepth)) + (GetFrontOffsetDirection() * 0.007f);
     }
 
+    private void EnsureDisplayMask()
+    {
+        EnsureDisplayAnchor();
+        if (m_DisplayMaskRenderer == null)
+        {
+            var maskObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            maskObject.name = "Digitron Display Mask";
+            maskObject.transform.SetParent(transform, false);
+            m_DisplayMaskRenderer = maskObject.GetComponent<Renderer>();
+            m_DisplayMaskRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            m_DisplayMaskRenderer.receiveShadows = false;
+            m_DisplayMaskMaterial = new Material(Shader.Find("Unlit/Color"));
+            m_DisplayMaskRenderer.material = m_DisplayMaskMaterial;
+            var collider = maskObject.GetComponent<Collider>();
+            if (collider) Destroy(collider);
+        }
+
+        var size = new Vector3(m_DisplayWorldSize.x * 1.8f, m_DisplayWorldSize.y * 1.55f, 1f);
+        var anchor = m_DisplayAnchor != null ? m_DisplayAnchor : m_ModelInstance.transform;
+        m_DisplayMaskRenderer.transform.position = anchor.position + (anchor.forward * -0.0015f);
+        m_DisplayMaskRenderer.transform.rotation = anchor.rotation;
+        m_DisplayMaskRenderer.transform.localScale = size;
+        if (m_DisplayMaskMaterial != null)
+        {
+            m_DisplayMaskMaterial.color = new Color(0.43f, 0.12f, 0.10f, 1f);
+        }
+    }
+
     private void UpdateLampFacingCamera()
     {
         if (!m_LampRenderer || !m_TargetCamera) return;
@@ -686,7 +905,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void ResetCalculatorRuntime()
     {
-        m_Runtime.ResetPoweredOff();
+        m_Runtime.PowerOnDefault();
         RefreshCalculatorPresentation();
     }
 
@@ -696,12 +915,31 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             m_LampMaterial.color = m_Runtime.IsPoweredOn ? new Color(1f, 0.14f, 0.14f, 1f) : new Color(0.2f, 0.05f, 0.05f, 1f);
         }
+        if (m_DisplayMaskMaterial != null)
+        {
+            m_DisplayMaskMaterial.color = m_Runtime.IsPoweredOn
+                ? new Color(0.30f, 0.05f, 0.04f, 1f)
+                : new Color(0.20f, 0.05f, 0.05f, 1f);
+        }
+        if (m_PowerSwitchTransform != null)
+        {
+            m_PowerSwitchTransform.localPosition = m_Runtime.IsPoweredOn ? m_PowerSwitchOnLocalPosition : m_PowerSwitchOffLocalPosition;
+        }
+        UpdateDisplayText();
     }
 
     private void RebuildKeyTargets()
     {
         foreach (var keyTarget in m_KeyTargets) if (keyTarget) Destroy(keyTarget.gameObject);
         m_KeyTargets.Clear();
+        foreach (var routine in m_KeyPressRoutines.Values)
+        {
+            if (routine != null)
+            {
+                StopCoroutine(routine);
+            }
+        }
+        m_KeyPressRoutines.Clear();
         if (TryBuildPhysicalKeyTargets()) return;
         m_UsePhysicalKeyTargets = false;
         foreach (var keyLayout in KeyLayouts)
@@ -721,34 +959,196 @@ public class DigitronCalculatorController : MonoBehaviour
     private bool TryBuildPhysicalKeyTargets()
     {
         var candidates = CollectPhysicalKeyCandidates();
-        if (candidates.Count < 10) return false;
-        var used = new HashSet<Renderer>();
-        foreach (var keyLayout in KeyLayouts)
+        if (candidates.Count < 15) return false;
+        var hasNamedTargets = TryCreateNamedPhysicalKeyTargets();
+        if (!hasNamedTargets)
         {
-            var expectedLocal = GetLocalPointForNormalizedAnchor(keyLayout.NormalizedAnchor);
-            Renderer best = null;
-            var bestScore = float.MaxValue;
-            foreach (var candidate in candidates)
+            TryCreateSortedPhysicalKeyTargets(candidates);
+        }
+        EnsureProjectedTargetsForLowerRows();
+        CreateFallbackProjectedKeyTarget(KeyLayouts.First(layout => layout.KeyId == DigitronKeyId.Power));
+        TryPreparePowerSwitchVisual(candidates);
+        m_UsePhysicalKeyTargets = m_KeyTargets.Count >= 10;
+        return m_UsePhysicalKeyTargets;
+    }
+
+    private bool TryCreateNamedPhysicalKeyTargets()
+    {
+        var nameToKeyId = new Dictionary<string, DigitronKeyId>
+        {
+            ["tipka_f"] = DigitronKeyId.F,
+            ["tipka_ce"] = DigitronKeyId.ClearEntry,
+            ["tipka_c"] = DigitronKeyId.ClearAll,
+            ["tipka_jednako"] = DigitronKeyId.Equals,
+            ["tipka_7"] = DigitronKeyId.Seven,
+            ["tipka_8"] = DigitronKeyId.Eight,
+            ["tipka_9"] = DigitronKeyId.Nine,
+            ["tipka_minus"] = DigitronKeyId.Subtract,
+            ["tipka_4"] = DigitronKeyId.Four,
+            ["tipka_5"] = DigitronKeyId.Five,
+            ["tipka_6"] = DigitronKeyId.Six,
+            ["tipka_dijeljeno"] = DigitronKeyId.Divide,
+            ["tipka_1"] = DigitronKeyId.One,
+            ["tipka_2"] = DigitronKeyId.Two,
+            ["tipka_3"] = DigitronKeyId.Three,
+            ["tipka_puta"] = DigitronKeyId.Multiply,
+            ["tipka_nula"] = DigitronKeyId.Zero,
+            ["tipka_desimala"] = DigitronKeyId.Decimal,
+            ["tipka_plus"] = DigitronKeyId.Add,
+        };
+
+        var namedCount = 0;
+        foreach (var renderer in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null)
             {
-                if (used.Contains(candidate)) continue;
-                var center = CalculateRendererLocalBounds(candidate).center;
-                var dx = Mathf.Abs(center.x - expectedLocal.x) / Mathf.Max(m_ModelLocalBounds.size.x, 0.001f);
-                var dy = Mathf.Abs(center.y - expectedLocal.y) / Mathf.Max(m_ModelLocalBounds.size.y, 0.001f);
-                var score = dx + (dy * 1.35f);
-                if (score < bestScore)
+                continue;
+            }
+
+            var rendererName = renderer.transform.name.ToLowerInvariant();
+            if (!nameToKeyId.TryGetValue(rendererName, out var keyId))
+            {
+                continue;
+            }
+
+            if (m_KeyTargets.Any(target => target != null && target.KeyId == keyId))
+            {
+                continue;
+            }
+
+            var keyLayout = KeyLayouts.First(layout => layout.KeyId == keyId);
+            CreatePhysicalKeyTarget(keyLayout, renderer);
+            namedCount++;
+        }
+
+        return namedCount >= 18;
+    }
+
+    private void TryCreateSortedPhysicalKeyTargets(List<Renderer> candidates)
+    {
+        var keypadCandidates = new List<Renderer>(candidates);
+        keypadCandidates.Sort((left, right) => CalculateRendererLocalBounds(right).center.y.CompareTo(CalculateRendererLocalBounds(left).center.y));
+        var rows = new List<List<Renderer>>();
+        var rowThreshold = Mathf.Max(m_ModelLocalBounds.size.y * 0.035f, 0.01f);
+        foreach (var candidate in keypadCandidates)
+        {
+            var centerY = CalculateRendererLocalBounds(candidate).center.y;
+            List<Renderer> targetRow = null;
+            foreach (var row in rows)
+            {
+                var rowCenterY = CalculateRendererLocalBounds(row[0]).center.y;
+                if (Mathf.Abs(rowCenterY - centerY) <= rowThreshold)
                 {
-                    bestScore = score;
-                    best = candidate;
+                    targetRow = row;
+                    break;
                 }
             }
 
-            if (best == null || bestScore > 0.18f) continue;
-            used.Add(best);
-            CreatePhysicalKeyTarget(keyLayout, best);
+            if (targetRow == null)
+            {
+                targetRow = new List<Renderer>();
+                rows.Add(targetRow);
+            }
+            targetRow.Add(candidate);
         }
 
-        m_UsePhysicalKeyTargets = m_KeyTargets.Count >= 10;
-        return m_UsePhysicalKeyTargets;
+        rows.RemoveAll(row => row.Count < 2);
+        rows.Sort((left, right) => CalculateRendererLocalBounds(right[0]).center.y.CompareTo(CalculateRendererLocalBounds(left[0]).center.y));
+        if (rows.Count < 5) return;
+
+        var expectedRows = new[]
+        {
+            new[] { DigitronKeyId.F, DigitronKeyId.ClearEntry, DigitronKeyId.ClearAll, DigitronKeyId.Equals },
+            new[] { DigitronKeyId.Seven, DigitronKeyId.Eight, DigitronKeyId.Nine, DigitronKeyId.Subtract },
+            new[] { DigitronKeyId.Four, DigitronKeyId.Five, DigitronKeyId.Six, DigitronKeyId.Divide },
+            new[] { DigitronKeyId.One, DigitronKeyId.Two, DigitronKeyId.Three, DigitronKeyId.Multiply },
+            new[] { DigitronKeyId.Zero, DigitronKeyId.Decimal, DigitronKeyId.Add },
+        };
+
+        for (var rowIndex = 0; rowIndex < expectedRows.Length; rowIndex++)
+        {
+            var row = rows[rowIndex];
+            row.Sort((left, right) => CalculateRendererLocalBounds(left).center.x.CompareTo(CalculateRendererLocalBounds(right).center.x));
+            if (row.Count < expectedRows[rowIndex].Length) continue;
+            if (row.Count > expectedRows[rowIndex].Length)
+            {
+                row = row.Take(expectedRows[rowIndex].Length).ToList();
+            }
+
+            for (var columnIndex = 0; columnIndex < expectedRows[rowIndex].Length; columnIndex++)
+            {
+                var keyId = expectedRows[rowIndex][columnIndex];
+                var keyLayout = KeyLayouts.First(layout => layout.KeyId == keyId);
+                CreatePhysicalKeyTarget(keyLayout, row[columnIndex]);
+            }
+        }
+    }
+
+    private void EnsureProjectedTargetsForLowerRows()
+    {
+        var requiredKeyIds = new[]
+        {
+            DigitronKeyId.One,
+            DigitronKeyId.Two,
+            DigitronKeyId.Three,
+            DigitronKeyId.Zero,
+            DigitronKeyId.Decimal,
+            DigitronKeyId.Add,
+            DigitronKeyId.Multiply,
+            DigitronKeyId.Four,
+            DigitronKeyId.Five,
+            DigitronKeyId.Six,
+        };
+
+        foreach (var keyId in requiredKeyIds)
+        {
+            var alreadyExists = m_KeyTargets.Any(target => target != null && target.KeyId == keyId);
+            if (alreadyExists)
+            {
+                continue;
+            }
+
+            var layout = KeyLayouts.First(entry => entry.KeyId == keyId);
+            CreateFallbackProjectedKeyTarget(layout);
+        }
+    }
+
+    private void CreateFallbackProjectedKeyTarget(KeyLayoutData keyLayout)
+    {
+        var keyObject = new GameObject($"Key {keyLayout.Name}");
+        keyObject.transform.SetParent(transform, true);
+        keyObject.transform.position = GetWorldPointForNormalizedAnchor(keyLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * KFrontSurfaceOffset);
+        keyObject.transform.rotation = m_ModelInstance.transform.rotation;
+        var collider = keyObject.AddComponent<BoxCollider>();
+        collider.size = new Vector3(
+            m_ModelLocalBounds.size.x * keyLayout.NormalizedSize.x,
+            m_ModelLocalBounds.size.y * keyLayout.NormalizedSize.y,
+            Mathf.Max(m_ModelBounds.size.z * 0.04f, 0.01f));
+        var pressTarget = FindNearestRendererTransform(keyLayout.NormalizedAnchor);
+        var pressOffset = pressTarget != null
+            ? pressTarget.localRotation * (Vector3.back * KPhysicalKeyPressDepth)
+            : Vector3.zero;
+        var keyTarget = keyObject.AddComponent<DigitronKeyHitTarget>();
+        keyTarget.Initialize(this, keyLayout.KeyId, pressTarget, pressOffset);
+        m_KeyTargets.Add(keyTarget);
+    }
+
+    private Transform FindNearestRendererTransform(Vector3 normalizedAnchor)
+    {
+        var expectedLocal = GetLocalPointForNormalizedAnchor(normalizedAnchor);
+        Renderer best = null;
+        var bestScore = float.MaxValue;
+        foreach (var renderer in CollectPhysicalKeyCandidates())
+        {
+            var localBounds = CalculateRendererLocalBounds(renderer);
+            var center = localBounds.center;
+            var score = Vector2.Distance(new Vector2(center.x, center.y), new Vector2(expectedLocal.x, expectedLocal.y));
+            if (score >= bestScore) continue;
+            bestScore = score;
+            best = renderer;
+        }
+
+        return best != null ? best.transform : null;
     }
 
     private List<Renderer> CollectPhysicalKeyCandidates()
@@ -777,13 +1177,36 @@ public class DigitronCalculatorController : MonoBehaviour
         var keyObject = new GameObject($"Key {keyLayout.Name}");
         keyObject.transform.SetParent(transform, true);
         keyObject.transform.position = m_ModelInstance.transform.TransformPoint(localBounds.center) + (GetFrontOffsetDirection() * 0.003f);
-        keyObject.transform.rotation = m_ModelInstance.transform.rotation;
+        keyObject.transform.rotation = renderer.transform.rotation;
         var collider = keyObject.AddComponent<BoxCollider>();
         collider.size = new Vector3(localBounds.size.x * 1.08f, localBounds.size.y * 1.08f, Mathf.Max(localBounds.size.z, m_ModelBounds.size.z * 0.03f));
-        var pressOffset = renderer.transform.InverseTransformDirection(-m_ModelInstance.transform.forward) * KPhysicalKeyPressDepth;
+        var pressOffset = renderer.transform.localRotation * (Vector3.back * KPhysicalKeyPressDepth);
         var keyTarget = keyObject.AddComponent<DigitronKeyHitTarget>();
         keyTarget.Initialize(this, keyLayout.KeyId, renderer.transform, pressOffset);
         m_KeyTargets.Add(keyTarget);
+    }
+
+    private void TryPreparePowerSwitchVisual(List<Renderer> candidates)
+    {
+        var expectedLocal = GetLocalPointForNormalizedAnchor(KeyLayouts.First(layout => layout.KeyId == DigitronKeyId.Power).NormalizedAnchor);
+        Renderer best = null;
+        var bestScore = float.MaxValue;
+        foreach (var candidate in candidates)
+        {
+            var localBounds = CalculateRendererLocalBounds(candidate);
+            var center = localBounds.center;
+            var dx = Mathf.Abs(center.x - expectedLocal.x);
+            var dy = Mathf.Abs(center.y - expectedLocal.y);
+            var score = dx + (dy * 1.2f);
+            if (score >= bestScore) continue;
+            bestScore = score;
+            best = candidate;
+        }
+
+        if (best == null) return;
+        m_PowerSwitchTransform = best.transform;
+        m_PowerSwitchOnLocalPosition = m_PowerSwitchTransform.localPosition;
+        m_PowerSwitchOffLocalPosition = m_PowerSwitchOnLocalPosition + (m_PowerSwitchTransform.InverseTransformDirection(m_ModelInstance.transform.right) * 0.01f);
     }
 
     private void SetCalculatorInteractionVisible(bool isVisible)
@@ -818,8 +1241,7 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             var keyTarget = hit.collider.GetComponent<DigitronKeyHitTarget>();
             if (keyTarget == null) continue;
-            HandleKeyPress(keyTarget.KeyId);
-            if (keyTarget.PressTarget != null) StartCoroutine(AnimatePhysicalKeyPress(keyTarget));
+            HandlePhysicalKeyTargetPressed(keyTarget);
             return;
         }
     }
@@ -828,7 +1250,7 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         var target = keyTarget.PressTarget;
         if (target == null) yield break;
-        var rest = target.localPosition;
+        var rest = keyTarget.RestLocalPosition;
         var pressed = rest + keyTarget.PressLocalOffset;
         var elapsed = 0f;
         while (elapsed < KPhysicalKeyPressDuration)
@@ -847,10 +1269,12 @@ public class DigitronCalculatorController : MonoBehaviour
         }
 
         target.localPosition = rest;
+        m_KeyPressRoutines.Remove(target);
     }
 
     private void RebuildHotspotMarkers()
     {
+        EnsureHotspotAnchors();
         foreach (var marker in m_HotspotMarkers.Values) if (marker) Destroy(marker.gameObject);
         m_HotspotMarkers.Clear();
         foreach (var hotspot in Hotspots)
@@ -859,11 +1283,13 @@ public class DigitronCalculatorController : MonoBehaviour
             markerObject.name = hotspot.Id;
             markerObject.transform.SetParent(transform, true);
             markerObject.transform.localScale = Vector3.one * KHotspotScale;
-            var anchorPoint = GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
+            var anchor = m_HotspotAnchors.TryGetValue(hotspot.Id, out var hotspotAnchor) ? hotspotAnchor : null;
+            var anchorPoint = anchor ? anchor.position : GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
             var localCenterWorld = m_ModelInstance.transform.TransformPoint(m_ModelLocalBounds.center);
             var direction = anchorPoint - localCenterWorld;
             if (direction.sqrMagnitude < 0.0001f) direction = m_ModelInstance.transform.up;
             markerObject.transform.position = anchorPoint + direction.normalized * (m_ModelBounds.extents.magnitude * KHotspotOffsetFactor);
+            markerObject.transform.rotation = anchor ? anchor.rotation : m_ModelInstance.transform.rotation;
             var renderer = markerObject.GetComponent<Renderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;

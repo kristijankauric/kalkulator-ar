@@ -4,31 +4,13 @@ public class DigitronHotspotMarker : MonoBehaviour
 {
     private DigitronCalculatorController m_Controller;
     private string m_HotspotId;
-    private Camera m_TargetCamera;
     private TextMesh m_NumberLabel;
 
     public void Initialize(DigitronCalculatorController controller, string hotspotId, int hotspotNumber, Camera targetCamera)
     {
         m_Controller = controller;
         m_HotspotId = hotspotId;
-        m_TargetCamera = targetCamera;
         EnsureNumberLabel(hotspotNumber);
-    }
-
-    private void LateUpdate()
-    {
-        if (!m_TargetCamera)
-        {
-            m_TargetCamera = Camera.main;
-        }
-
-        if (!m_TargetCamera)
-        {
-            return;
-        }
-
-        transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
-        transform.Rotate(0f, 180f, 0f);
     }
 
     private void OnMouseDown()

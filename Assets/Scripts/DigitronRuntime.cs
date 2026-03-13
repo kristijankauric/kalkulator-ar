@@ -3,14 +3,14 @@ using System.Globalization;
 public enum DigitronKeyId
 {
     Power,
-    K,
     F,
     ClearEntry,
     ClearAll,
+    Equals,
     Seven,
     Eight,
     Nine,
-    MinusOrEquals,
+    Subtract,
     Four,
     Five,
     Six,
@@ -74,7 +74,6 @@ public sealed class DigitronRuntime
 
         switch (keyId)
         {
-            case DigitronKeyId.K:
             case DigitronKeyId.F:
                 return;
             case DigitronKeyId.ClearEntry:
@@ -82,6 +81,9 @@ public sealed class DigitronRuntime
                 return;
             case DigitronKeyId.ClearAll:
                 ResetPoweredOn();
+                return;
+            case DigitronKeyId.Equals:
+                ExecuteEquals();
                 return;
             case DigitronKeyId.Seven:
                 AppendDigit('7');
@@ -119,16 +121,21 @@ public sealed class DigitronRuntime
             case DigitronKeyId.Add:
                 QueueOperation(PendingOperation.Add);
                 return;
+            case DigitronKeyId.Subtract:
+                QueueOperation(PendingOperation.Subtract);
+                return;
             case DigitronKeyId.Divide:
                 QueueOperation(PendingOperation.Divide);
                 return;
             case DigitronKeyId.Multiply:
                 QueueOperation(PendingOperation.Multiply);
                 return;
-            case DigitronKeyId.MinusOrEquals:
-                HandleMinusOrEquals();
-                return;
         }
+    }
+
+    public void PowerOnDefault()
+    {
+        ResetPoweredOn();
     }
 
     private void TogglePower()
@@ -196,17 +203,6 @@ public sealed class DigitronRuntime
         {
             m_CurrentEntry += ",";
         }
-    }
-
-    private void HandleMinusOrEquals()
-    {
-        if (m_PendingOperation.HasValue && !m_IsEnteringNewNumber)
-        {
-            ExecuteEquals();
-            return;
-        }
-
-        QueueOperation(PendingOperation.Subtract);
     }
 
     private void QueueOperation(PendingOperation operation)
