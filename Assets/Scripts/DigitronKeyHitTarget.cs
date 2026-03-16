@@ -17,13 +17,5 @@ public class DigitronKeyHitTarget : MonoBehaviour
         RestLocalPosition = PressTarget != null ? PressTarget.localPosition : Vector3.zero;
     }
 
-    private void OnMouseDown()
-    {
-        if (m_Controller == null)
-        {
-            return;
-        }
 
-        m_Controller.HandlePhysicalKeyTargetPressed(this);
-    }
 }

@@ -148,6 +148,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private Renderer m_DisplayMaskRenderer;
     private Material m_DisplayMaskMaterial;
     private Transform m_DisplayAnchor;
+    private Transform m_DisplaySurface;
     private TextMesh m_DisplayText;
     private Font m_DisplayFont;
     private Renderer m_ModelDisplayTextRenderer;
@@ -279,6 +280,7 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
         UpdateLampFacingCamera();
+        UpdateDisplayTextVisibility();
         HandleCalculatorPointerInput();
     }
 
@@ -725,6 +727,10 @@ public class DigitronCalculatorController : MonoBehaviour
                 {
                     textMesh.text = string.Empty;
                 }
+                else if (m_ModelDisplayTextRenderer != null && !m_HiddenDisplayRenderers.Contains(m_ModelDisplayTextRenderer))
+                {
+                    m_HiddenDisplayRenderers.Add(m_ModelDisplayTextRenderer);
+                }
             }
         }
 
@@ -763,6 +769,18 @@ public class DigitronCalculatorController : MonoBehaviour
             m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
         }
         m_DisplayAnchor.localScale = Vector3.one;
+
+        if (m_DisplaySurface == null)
+        {
+            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name.ToLowerInvariant() == "plocica_01b")
+                {
+                    m_DisplaySurface = child;
+                    break;
+                }
+            }
+        }
     }
 
     private void EnsureDisplayText()
@@ -781,7 +799,7 @@ public class DigitronCalculatorController : MonoBehaviour
             if (m_DisplayText == null)
             {
                 var textObject = new GameObject("Digitron Display Text");
-                textObject.transform.SetParent(m_DisplayAnchor, false);
+                textObject.transform.SetParent(transform, false);
                 m_DisplayText = textObject.AddComponent<TextMesh>();
                 var renderer = m_DisplayText.GetComponent<Renderer>();
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -789,9 +807,37 @@ public class DigitronCalculatorController : MonoBehaviour
                 renderer.sortingOrder = 50;
             }
 
-            m_DisplayText.transform.localPosition = new Vector3(0f, 0f, -0.0005f);
-            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            m_DisplayText.transform.localScale = Vector3.one;
+            if (m_DisplaySurface != null)
+            {
+                m_DisplayText.transform.SetParent(m_DisplaySurface, false);
+                var mf = m_DisplaySurface.GetComponent<MeshFilter>();
+                var meshBounds = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds : new Bounds(Vector3.zero, Vector3.one);
+                var frontZ = meshBounds.max.z + Mathf.Abs(meshBounds.size.z) * 0.1f;
+                float anchorX, anchorY;
+                if (m_ModelDisplayTextTransform != null)
+                {
+                    var localPos = m_DisplaySurface.InverseTransformPoint(m_ModelDisplayTextTransform.position);
+                    anchorX = localPos.x;
+                    anchorY = localPos.y;
+                }
+                else
+                {
+                    anchorX = meshBounds.max.x;
+                    anchorY = meshBounds.center.y;
+                }
+                m_DisplayText.transform.localPosition = new Vector3(anchorX, anchorY, frontZ);
+                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+                var surfaceScale = m_DisplaySurface.lossyScale.y;
+                m_DisplayText.transform.localScale = Vector3.one;
+                m_DisplayText.characterSize = Mathf.Abs(surfaceScale) > 0.0001f ? 0.0052f / surfaceScale : 0.0052f;
+            }
+            else
+            {
+                m_DisplayText.transform.SetParent(transform, false);
+                m_DisplayText.transform.localPosition = new Vector3(-0.176f, 0.398f, -0.046f);
+                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
+                m_DisplayText.transform.localScale = Vector3.one;
+            }
         }
 
         if (m_DisplayFont == null)
@@ -805,10 +851,13 @@ public class DigitronCalculatorController : MonoBehaviour
 #endif
         }
 
-        m_DisplayText.anchor = TextAnchor.MiddleCenter;
-        m_DisplayText.alignment = TextAlignment.Center;
+        m_DisplayText.anchor = TextAnchor.MiddleRight;
+        m_DisplayText.alignment = TextAlignment.Right;
         m_DisplayText.fontSize = 128;
-        m_DisplayText.characterSize = 0.0052f;
+        if (m_DisplaySurface == null)
+        {
+            m_DisplayText.characterSize = 0.0052f;
+        }
         m_DisplayText.color = new Color(1f, 0.9f, 0.82f, 1f);
 
         if (m_DisplayFont != null)
@@ -828,7 +877,6 @@ public class DigitronCalculatorController : MonoBehaviour
         }
 
         m_DisplayText.text = m_Runtime.IsPoweredOn ? m_Runtime.DisplayText : string.Empty;
-        m_DisplayText.GetComponent<MeshRenderer>().enabled = true;
     }
 
     private void EnsureHotspotAnchors()
@@ -901,6 +949,16 @@ public class DigitronCalculatorController : MonoBehaviour
         if (!m_LampRenderer || !m_TargetCamera) return;
         m_LampRenderer.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
         m_LampRenderer.transform.Rotate(0f, 180f, 0f);
+    }
+
+    private void UpdateDisplayTextVisibility()
+    {
+        if (m_DisplayText == null || m_DisplayAnchor == null || !m_TargetCamera) return;
+        var renderer = m_DisplayText.GetComponent<MeshRenderer>();
+        if (renderer == null) return;
+        var toCamera = (m_TargetCamera.transform.position - m_DisplayAnchor.position).normalized;
+        var isFacing = Vector3.Dot(toCamera, m_DisplayAnchor.forward) > 0f;
+        renderer.enabled = isFacing && m_Runtime.IsPoweredOn;
     }
 
     private void ResetCalculatorRuntime()
@@ -987,7 +1045,7 @@ public class DigitronCalculatorController : MonoBehaviour
             ["tipka_4"] = DigitronKeyId.Four,
             ["tipka_5"] = DigitronKeyId.Five,
             ["tipka_6"] = DigitronKeyId.Six,
-            ["tipka_dijeljeno"] = DigitronKeyId.Divide,
+            ["tipka_djeljeno"] = DigitronKeyId.Divide,
             ["tipka_1"] = DigitronKeyId.One,
             ["tipka_2"] = DigitronKeyId.Two,
             ["tipka_3"] = DigitronKeyId.Three,
@@ -1088,6 +1146,7 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         var requiredKeyIds = new[]
         {
+            DigitronKeyId.F,
             DigitronKeyId.One,
             DigitronKeyId.Two,
             DigitronKeyId.Three,
@@ -1217,7 +1276,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void HandleCalculatorPointerInput()
     {
-        if (!m_UsePhysicalKeyTargets || m_State != DigitronState.PlacedClosed || !m_TargetCamera) return;
+        if (m_State != DigitronState.PlacedClosed || !m_TargetCamera) return;
         Vector3 pointerPosition;
         if (Input.touchCount > 0)
         {
