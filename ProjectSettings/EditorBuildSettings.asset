@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/Digitron AR Base 3.unity
+    guid: b4e04b6e01bc86a4ba60668e7b5e8310
   m_configObjects: {}

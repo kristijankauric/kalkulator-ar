@@ -168,7 +168,14 @@ public class MainController : MonoBehaviour
         }
 
         m_DigitronController = digitronRoot.AddComponent<DigitronCalculatorController>();
-        m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize());
+        try
+        {
+            m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize());
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[MainController] DigitronCalculatorController.Initialize threw: {e}");
+        }
 
 #if UNITY_EDITOR
         if (Application.isPlaying && m_EnableEditorInstantPreview)

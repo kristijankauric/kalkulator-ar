@@ -17,6 +17,7 @@ public class DigitronCalculatorController : MonoBehaviour
         public string Title;
         public string Description;
         public Vector3 NormalizedViewportAnchor;
+        public Vector3 MarkerLocalDir; // Marker placement direction in model local space (ensures spread around perimeter)
     }
 
     private struct KeyLayoutData
@@ -44,12 +45,12 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KManualOpenAngle = -110f;
     private const float KPhysicalKeyPressDepth = 0.004f;
     private const float KPhysicalKeyPressDuration = 0.08f;
-    private const float KOpenButtonWidth = 140f;
-    private const float KOpenButtonHeight = 44f;
-    private const float KHotspotScale = 0.04f;
-    private const float KHotspotOffsetFactor = 0.14f;
-    private const float KInfoBoxWidth = 560f;
-    private const float KInfoBoxHeight = 170f;
+    private const float KOpenButtonWidth = 160f;
+    private const float KOpenButtonHeight = 50f;
+    private const float KHotspotScale = 0.045f;
+    private const float KHotspotOffsetFactor = 0.28f;
+    private const float KInfoBoxWidth = 660f;
+    private const float KInfoBoxHeight = 220f;
     private const float KBottomUiMargin = 28f;
     private const float KFrontSurfaceDepth = 0.235f;
     private const float KFrontSurfaceOffset = 0.02f;
@@ -64,12 +65,13 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private static readonly HotspotData[] Hotspots =
     {
-        new HotspotData { Id = "housing", Number = 1, Title = "Kuciste", Description = "Kuciste stiti osjetljivu elektroniku i drzi sve dijelove na mjestu.", NormalizedViewportAnchor = new Vector3(0.5f, 0.55f, 0.1f) },
-        new HotspotData { Id = "keyboard", Number = 2, Title = "Tipkovnica", Description = "Tipkovnica sluzi za unos brojeva i matematickih operacija.", NormalizedViewportAnchor = new Vector3(0.5f, 0.3f, 0.23f) },
-        new HotspotData { Id = "board", Number = 3, Title = "Elektronicka ploca", Description = "Elektronicka ploca povezuje sve dijelove kalkulatora.", NormalizedViewportAnchor = new Vector3(0.52f, 0.46f, -0.08f) },
-        new HotspotData { Id = "chips", Number = 4, Title = "Integrirani krugovi", Description = "Cipovi predstavljaju mozak kalkulatora.", NormalizedViewportAnchor = new Vector3(0.67f, 0.46f, -0.02f) },
-        new HotspotData { Id = "batteries", Number = 5, Title = "Baterije", Description = "Baterije napajaju kalkulator elektricnom energijom.", NormalizedViewportAnchor = new Vector3(0.78f, 0.3f, -0.15f) },
-        new HotspotData { Id = "display", Number = 6, Title = "Zaslon", Description = "Crveni LED zaslon prikazuje rezultate racunanja.", NormalizedViewportAnchor = new Vector3(0.5f, 0.77f, 0.02f) },
+        // MarkerLocalDir: offset direction in model-local space from anchor mesh centre → label quad position
+        new HotspotData { Id = "housing",   Number = 1, Title = "Kući\u0161te",              Description = "Ku\u0107i\u0161te \u0161titi osjetljivu elektroniku i dr\u017ei sve dijelove na mjestu.",  NormalizedViewportAnchor = new Vector3(0.5f,  0.55f,  0.1f),  MarkerLocalDir = new Vector3( 2.6f,  0.35f,  0.10f) },
+        new HotspotData { Id = "keyboard",  Number = 2, Title = "Tipkovnica",                Description = "Tipkovnica slu\u017ei za unos brojeva i matemati\u010dkih operacija.",                     NormalizedViewportAnchor = new Vector3(0.5f,  0.3f,  0.23f), MarkerLocalDir = new Vector3(-2.2f, -0.20f,  0.30f) },
+        new HotspotData { Id = "board",     Number = 3, Title = "Elektroni\u010dka\nplo\u010da", Description = "Elektroni\u010dka plo\u010da povezuje sve dijelove kalkulatora.",                     NormalizedViewportAnchor = new Vector3(0.52f, 0.46f, -0.08f), MarkerLocalDir = new Vector3( 2.2f,  0.35f, -0.20f) },
+        new HotspotData { Id = "chips",     Number = 4, Title = "Integrirani\nkrugovi",       Description = "\u010cipovi predstavljaju mozak kalkulatora.",                                           NormalizedViewportAnchor = new Vector3(0.67f, 0.46f, -0.02f), MarkerLocalDir = new Vector3(-2.4f,  0.15f, -0.20f) },
+        new HotspotData { Id = "batteries", Number = 5, Title = "Baterije",                   Description = "Baterije napajaju kalkulator elektri\u010dnom energijom.",                              NormalizedViewportAnchor = new Vector3(0.78f, 0.3f, -0.15f), MarkerLocalDir = new Vector3(-2.3f, -0.65f,  0.20f) },
+        new HotspotData { Id = "display",   Number = 6, Title = "Zaslon",                     Description = "Crveni LED zaslon prikazuje rezultate ra\u010dunanja.",                                 NormalizedViewportAnchor = new Vector3(0.5f,  0.77f,  0.02f), MarkerLocalDir = new Vector3( 0.3f,  1.2f,  0.3f) },
     };
 
     private static readonly DisplayLayoutData DisplayLayout = new DisplayLayoutData
@@ -117,6 +119,28 @@ public class DigitronCalculatorController : MonoBehaviour
         new KeyLayoutData { KeyId = DigitronKeyId.Power, Name = "ON", NormalizedAnchor = new Vector3(0.790f, 0.595f, KFrontSurfaceDepth), NormalizedSize = new Vector2(0.105f, 0.055f) },
     };
 
+    // Used for highlight/dim — all mesh objects belonging to each system
+    private static readonly Dictionary<string, string[]> KHotspotMeshKeywords = new Dictionary<string, string[]>
+    {
+        { "housing",   new[] { "db801_prednja", "db801_straznja", "poklopac_straznji",
+                               "lampica", "logo_", "sklopka", "chamfercyl", "cylinder0",
+                               "kontakti", "t01", "t02", "t03" } },
+        { "keyboard",  new[] { "tipka", "tipke" } },
+        { "board",     new[] { "plocica_02", "tube0", "zice_", "vijak_" } },
+        { "chips",     new[] { "box0", "object001" } },
+        { "batteries", new[] { "baterija" } },
+        { "display",   new[] { "plocica_01b", "textplus" } },
+    };
+
+    // Used for anchor/line-endpoint positioning only — the single most visible representative mesh
+    private static readonly Dictionary<string, string[]> KHotspotAnchorKeywords = new Dictionary<string, string[]>
+    {
+        { "housing",  new[] { "db801_prednja" } },  // front outer plastic shell
+        { "board",    new[] { "plocica_02" } },      // main PCB board surface
+    };
+
+    private MaterialPropertyBlock m_DimBlock;
+
     private readonly Dictionary<string, DigitronHotspotMarker> m_HotspotMarkers = new Dictionary<string, DigitronHotspotMarker>();
     private readonly Dictionary<string, Transform> m_HotspotAnchors = new Dictionary<string, Transform>();
     private readonly List<DigitronKeyHitTarget> m_KeyTargets = new List<DigitronKeyHitTarget>();
@@ -141,10 +165,13 @@ public class DigitronCalculatorController : MonoBehaviour
     private GUIStyle m_OpenButtonStyle;
     private GUIStyle m_InfoBoxStyle;
     private GUIStyle m_InfoTitleStyle;
+    private GUIStyle m_InfoDescStyle;
+    private GUIStyle m_CloseButtonStyle;
     private GUIStyle m_KeyButtonStyle;
     private GUIStyle m_DisplayStyle;
     private Renderer m_LampRenderer;
     private Material m_LampMaterial;
+    private Transform m_LampAnchor;
     private Renderer m_DisplayMaskRenderer;
     private Material m_DisplayMaskMaterial;
     private Transform m_DisplayAnchor;
@@ -240,7 +267,18 @@ public class DigitronCalculatorController : MonoBehaviour
 
     public void SelectHotspot(string hotspotId)
     {
-        if (m_State == DigitronState.Opened) m_SelectedHotspotId = hotspotId;
+        if (m_State != DigitronState.Opened) return;
+        m_SelectedHotspotId = hotspotId;
+        ApplyHotspotHighlight(hotspotId);
+        UpdateHotspotMarkerStates();
+#if UNITY_EDITOR
+        if (!string.IsNullOrEmpty(hotspotId) &&
+            m_HotspotAnchors.TryGetValue(hotspotId, out var anchor) && anchor != null)
+        {
+            var orbit = Object.FindObjectOfType<EditorPreviewMouseOrbit>();
+            if (orbit != null) orbit.FocusOnPoint(anchor.position);
+        }
+#endif
     }
 
     public Bounds GetWorldBounds()
@@ -289,14 +327,25 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (!m_ModelInstance || !m_TargetCamera || m_State == DigitronState.Unplaced) return;
         EnsureGuiStyles();
+        // Responsive font sizes — recalculated every frame based on screen height
+        var fs = Screen.height;
+        m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.022f), 11, 20);
+        m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.022f), 11, 18);
+        m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.016f),  9, 14);
+        m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
         if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
     }
 
     private void DrawToggleButton()
     {
-        var rect = new Rect((Screen.width - KOpenButtonWidth) * 0.5f, Screen.height - KOpenButtonHeight - KBottomUiMargin, KOpenButtonWidth, KOpenButtonHeight);
-        if (GUI.Button(rect, m_State == DigitronState.Opened ? "Zatvori" : "Otvori", m_OpenButtonStyle)) ToggleOpenState();
+        // Responsive: 22% of screen width, 6.5% of screen height
+        var btnW = Screen.width  * 0.22f;
+        var btnH = Screen.height * 0.065f;
+        var margin = Screen.height * 0.025f;
+        var rect = new Rect((Screen.width - btnW) * 0.5f, Screen.height - btnH - margin, btnW, btnH);
+        if (GUI.Button(rect, m_State == DigitronState.Opened ? "Zatvori" : "Otvori", m_OpenButtonStyle))
+            ToggleOpenState();
     }
 
     private void DrawInfoBox()
@@ -304,15 +353,46 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_State != DigitronState.Opened || string.IsNullOrEmpty(m_SelectedHotspotId)) return;
         var hotspot = Hotspots.FirstOrDefault(entry => entry.Id == m_SelectedHotspotId);
         if (string.IsNullOrEmpty(hotspot.Id)) return;
-        var width = Mathf.Min(KInfoBoxWidth, Screen.width - 32f);
-        var rect = new Rect((Screen.width - width) * 0.5f, Screen.height - KInfoBoxHeight - KOpenButtonHeight - (KBottomUiMargin * 2f), width, KInfoBoxHeight);
-        GUILayout.BeginArea(rect, m_InfoBoxStyle);
-        GUILayout.Label(hotspot.Title, m_InfoTitleStyle);
-        GUILayout.Space(8f);
-        GUILayout.Label(hotspot.Description, GUI.skin.label);
-        GUILayout.Space(10f);
-        if (GUILayout.Button("Zatvori opis")) m_SelectedHotspotId = null;
-        GUILayout.EndArea();
+
+        // All dimensions as screen-percentage so portrait/landscape/tablet all work
+        var pad       = Screen.height * 0.018f;
+        var closeSize = Screen.height * 0.05f;
+        var lineH     = Screen.height * 0.044f;
+        var titleLineCount = hotspot.Title.Split('\n').Length;
+        var titleH    = lineH * titleLineCount;
+        var panelW    = Screen.width  * 0.88f;
+        var descW     = panelW - pad * 2f;
+
+        // Auto-height description so text is never clipped
+        var descContent = new GUIContent(hotspot.Description);
+        var descH = m_InfoDescStyle.CalcHeight(descContent, descW);
+        descH = Mathf.Max(descH, Screen.height * 0.04f);
+
+        var panelH  = pad + titleH + pad * 0.5f + descH + pad;
+        var panelX  = (Screen.width - panelW) * 0.5f;
+        var btnH    = Screen.height * 0.065f;
+        var margin  = Screen.height * 0.025f;
+        var panelY  = Screen.height - panelH - btnH - margin * 2f;
+        panelY = Mathf.Max(panelY, margin);   // never go above top edge
+
+        GUI.Box(new Rect(panelX, panelY, panelW, panelH), GUIContent.none, m_InfoBoxStyle);
+
+        // Title
+        GUI.Label(new Rect(panelX + pad, panelY + pad, panelW - pad * 2f - closeSize - 4f, titleH),
+                  hotspot.Title, m_InfoTitleStyle);
+
+        // Close ×
+        if (GUI.Button(new Rect(panelX + panelW - pad - closeSize, panelY + pad * 0.4f, closeSize, closeSize),
+                       "×", m_CloseButtonStyle))
+        {
+            m_SelectedHotspotId = null;
+            ApplyHotspotHighlight(null);
+            UpdateHotspotMarkerStates();
+        }
+
+        // Description (auto-sized)
+        GUI.Label(new Rect(panelX + pad, panelY + pad + titleH + pad * 0.5f, descW, descH),
+                  hotspot.Description, m_InfoDescStyle);
     }
 
     private void ToggleOpenState()
@@ -338,6 +418,7 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_State != DigitronState.Opened) return;
         StopCurrentRoutine();
         m_SelectedHotspotId = null;
+        ApplyHotspotHighlight(null);
         SetHotspotsVisible(false);
         m_State = DigitronState.Closing;
         if (m_OpenAnimationClip != null) m_FallbackRoutine = StartCoroutine(PlayOpenClipRoutine(1f, 0f, DigitronState.PlacedClosed));
@@ -751,6 +832,19 @@ public class DigitronCalculatorController : MonoBehaviour
                 Mathf.Max(localBounds.size.y * 1.45f, 0.05f));
         }
 
+        // Always find the display surface — must happen before any early return
+        if (m_DisplaySurface == null)
+        {
+            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (child.name.ToLowerInvariant() == "plocica_01b")
+                {
+                    m_DisplaySurface = child;
+                    break;
+                }
+            }
+        }
+
         if (m_ModelDisplayTextTransform != null)
         {
             var anchorParent = m_ModelDisplayTextTransform.parent != null
@@ -763,25 +857,11 @@ public class DigitronCalculatorController : MonoBehaviour
             m_DisplayAnchor.localScale = m_ModelDisplayTextTransform.localScale;
             return;
         }
-        else
-        {
-            m_DisplayAnchor.SetParent(m_ModelInstance.transform, false);
-            m_DisplayAnchor.position = GetWorldPointForNormalizedAnchor(DisplayLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * 0.004f);
-            m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
-        }
-        m_DisplayAnchor.localScale = Vector3.one;
 
-        if (m_DisplaySurface == null)
-        {
-            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
-            {
-                if (child.name.ToLowerInvariant() == "plocica_01b")
-                {
-                    m_DisplaySurface = child;
-                    break;
-                }
-            }
-        }
+        m_DisplayAnchor.SetParent(m_ModelInstance.transform, false);
+        m_DisplayAnchor.position = GetWorldPointForNormalizedAnchor(DisplayLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * 0.004f);
+        m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
+        m_DisplayAnchor.localScale = Vector3.one;
     }
 
     private void EnsureDisplayText()
@@ -789,6 +869,14 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_ModelDisplayTextMesh != null)
         {
             m_DisplayText = m_ModelDisplayTextMesh;
+            // Reposition TextPlus001 to the correct display window location within plocica_01B
+            if (m_DisplaySurface != null)
+            {
+                m_DisplayText.transform.SetParent(m_DisplaySurface, false);
+                m_DisplayText.transform.localPosition = new Vector3(-0.251f, 0.041f, 0.031f);
+                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
+                m_DisplayText.transform.localScale = Vector3.one;
+            }
         }
         else
         {
@@ -810,27 +898,16 @@ public class DigitronCalculatorController : MonoBehaviour
 
             if (m_DisplaySurface != null)
             {
+                // Parent to display board so text tracks it during animation.
+                // Use world-space position/rotation so the text faces camera
+                // regardless of plocica_01B's own tilt (X:105 in FBX).
+                // Local position within plocica_01B that lands on the display window
+                // (read from inspector after manual placement)
                 m_DisplayText.transform.SetParent(m_DisplaySurface, false);
-                var mf = m_DisplaySurface.GetComponent<MeshFilter>();
-                var meshBounds = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds : new Bounds(Vector3.zero, Vector3.one);
-                var frontZ = meshBounds.max.z + Mathf.Abs(meshBounds.size.z) * 0.1f;
-                float anchorX, anchorY;
-                if (m_ModelDisplayTextTransform != null)
-                {
-                    var localPos = m_DisplaySurface.InverseTransformPoint(m_ModelDisplayTextTransform.position);
-                    anchorX = localPos.x;
-                    anchorY = localPos.y;
-                }
-                else
-                {
-                    anchorX = meshBounds.max.x;
-                    anchorY = meshBounds.center.y;
-                }
-                m_DisplayText.transform.localPosition = new Vector3(anchorX, anchorY, frontZ);
-                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
-                var surfaceScale = m_DisplaySurface.lossyScale.y;
+                m_DisplayText.transform.localPosition = new Vector3(-0.251f, 0.041f, 0.031f);
+                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
                 m_DisplayText.transform.localScale = Vector3.one;
-                m_DisplayText.characterSize = Mathf.Abs(surfaceScale) > 0.0001f ? 0.0052f / surfaceScale : 0.0052f;
+                m_DisplayText.characterSize = 0.0052f;
             }
             else
             {
@@ -885,17 +962,59 @@ public class DigitronCalculatorController : MonoBehaviour
         foreach (var hotspot in Hotspots)
         {
             if (m_HotspotAnchors.ContainsKey(hotspot.Id) && m_HotspotAnchors[hotspot.Id] != null)
+                continue;
+
+            // Special case: display hotspot anchors directly to the known display surface
+            if (hotspot.Id == "display" && m_ModelDisplayTextTransform != null)
             {
+                var dispAnchor = new GameObject($"Hotspot Anchor {hotspot.Id}");
+                dispAnchor.transform.SetParent(m_ModelDisplayTextTransform, false);
+                dispAnchor.transform.localPosition = Vector3.zero;
+                m_HotspotAnchors[hotspot.Id] = dispAnchor.transform;
                 continue;
             }
 
-            var normalizedAnchor = MainController.HotspotNormalizedAnchors.TryGetValue(hotspot.Id, out var sceneAnchor)
-                ? sceneAnchor
-                : hotspot.NormalizedViewportAnchor;
+            Transform anchorParent = m_ModelInstance.transform;
+            Vector3 anchorWorldPos = GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
+
+            if (KHotspotMeshKeywords.TryGetValue(hotspot.Id, out var keywords))
+            {
+                // Use specific anchor keywords if defined (most representative visible part),
+                // otherwise fall back to the full mesh keyword list
+                var anchorKeywords = KHotspotAnchorKeywords.TryGetValue(hotspot.Id, out var ak) ? ak : keywords;
+
+                var anchorMatching = new List<Renderer>();
+                foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
+                    if (IsRendererForHotspot(r, anchorKeywords)) anchorMatching.Add(r);
+
+                // Fall back to full keywords if anchor-specific search found nothing
+                if (anchorMatching.Count == 0)
+                    foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
+                        if (IsRendererForHotspot(r, keywords)) anchorMatching.Add(r);
+
+                if (anchorMatching.Count > 0)
+                {
+                    var b = anchorMatching[0].bounds;
+                    for (var i = 1; i < anchorMatching.Count; i++) b.Encapsulate(anchorMatching[i].bounds);
+                    anchorWorldPos = b.center;
+                    var bestAnchorRenderer = anchorMatching[0];
+                    var bestDist = float.MaxValue;
+                    foreach (var r in anchorMatching)
+                    {
+                        var d = Vector3.Distance(r.bounds.center, anchorWorldPos);
+                        if (d < bestDist) { bestDist = d; bestAnchorRenderer = r; }
+                    }
+                    anchorParent = bestAnchorRenderer.transform;
+                }
+                else
+                {
+                    Debug.Log($"[Hotspot] No mesh found for '{hotspot.Id}', using normalized fallback.");
+                }
+            }
 
             var anchorObject = new GameObject($"Hotspot Anchor {hotspot.Id}");
-            anchorObject.transform.SetParent(m_ModelInstance.transform, false);
-            anchorObject.transform.position = GetWorldPointForNormalizedAnchor(normalizedAnchor);
+            anchorObject.transform.SetParent(anchorParent, true);
+            anchorObject.transform.position = anchorWorldPos;
             anchorObject.transform.rotation = m_ModelInstance.transform.rotation;
             m_HotspotAnchors[hotspot.Id] = anchorObject.transform;
         }
@@ -913,45 +1032,45 @@ public class DigitronCalculatorController : MonoBehaviour
             m_LampRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             m_LampRenderer.receiveShadows = false;
             m_LampMaterial = new Material(Shader.Find("Unlit/Color"));
+            m_LampMaterial.color = new Color(1f, 0.14f, 0.14f, 1f);   // always bright red
             m_LampRenderer.material = m_LampMaterial;
             var collider = lampObject.GetComponent<Collider>();
             if (collider) Destroy(collider);
         }
 
-        m_LampRenderer.transform.position = GetWorldPointForNormalizedAnchor(new Vector3(0.815f, 0.63f, KFrontSurfaceDepth)) + (GetFrontOffsetDirection() * 0.007f);
+        // Find the lampica mesh anchor once
+        if (m_LampAnchor == null && m_ModelInstance != null)
+        {
+            foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
+            {
+                var n = r.gameObject.name.ToLowerInvariant();
+                var pn = r.transform.parent != null ? r.transform.parent.name.ToLowerInvariant() : "";
+                if (n.Contains("lampica") || pn.Contains("lampica"))
+                {
+                    m_LampAnchor = r.transform;
+                    break;
+                }
+            }
+        }
+
+        // Position on lampica mesh; fall back to hardcoded if not found
+        if (m_LampAnchor != null)
+            m_LampRenderer.transform.position = m_LampAnchor.position + GetFrontOffsetDirection() * 0.005f;
+        else
+            m_LampRenderer.transform.position = GetWorldPointForNormalizedAnchor(new Vector3(0.815f, 0.63f, KFrontSurfaceDepth)) + (GetFrontOffsetDirection() * 0.007f);
     }
 
     private void EnsureDisplayMask()
     {
-        EnsureDisplayAnchor();
-        if (m_DisplayMaskRenderer == null)
-        {
-            var maskObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            maskObject.name = "Digitron Display Mask";
-            maskObject.transform.SetParent(transform, false);
-            m_DisplayMaskRenderer = maskObject.GetComponent<Renderer>();
-            m_DisplayMaskRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            m_DisplayMaskRenderer.receiveShadows = false;
-            m_DisplayMaskMaterial = new Material(Shader.Find("Unlit/Color"));
-            m_DisplayMaskRenderer.material = m_DisplayMaskMaterial;
-            var collider = maskObject.GetComponent<Collider>();
-            if (collider) Destroy(collider);
-        }
-
-        var size = new Vector3(m_DisplayWorldSize.x * 1.8f, m_DisplayWorldSize.y * 1.55f, 1f);
-        var anchor = m_DisplayAnchor != null ? m_DisplayAnchor : m_ModelInstance.transform;
-        m_DisplayMaskRenderer.transform.position = anchor.position + (anchor.forward * -0.0015f);
-        m_DisplayMaskRenderer.transform.rotation = anchor.rotation;
-        m_DisplayMaskRenderer.transform.localScale = size;
-        if (m_DisplayMaskMaterial != null)
-        {
-            m_DisplayMaskMaterial.color = new Color(0.43f, 0.12f, 0.10f, 1f);
-        }
+        // Display mask disabled — no-op
     }
 
     private void UpdateLampFacingCamera()
     {
         if (!m_LampRenderer || !m_TargetCamera) return;
+        // Track lampica mesh position every frame (handles animation/explosion)
+        if (m_LampAnchor != null)
+            m_LampRenderer.transform.position = m_LampAnchor.position + GetFrontOffsetDirection() * 0.005f;
         m_LampRenderer.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
         m_LampRenderer.transform.Rotate(0f, 180f, 0f);
     }
@@ -964,6 +1083,7 @@ public class DigitronCalculatorController : MonoBehaviour
             if (!marker || !marker.gameObject.activeSelf) continue;
             marker.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
             marker.transform.Rotate(0f, 180f, 0f);
+            marker.UpdateLine();
         }
     }
 
@@ -985,16 +1105,8 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void RefreshCalculatorPresentation()
     {
-        if (m_LampMaterial != null)
-        {
-            m_LampMaterial.color = m_Runtime.IsPoweredOn ? new Color(1f, 0.14f, 0.14f, 1f) : new Color(0.2f, 0.05f, 0.05f, 1f);
-        }
-        if (m_DisplayMaskMaterial != null)
-        {
-            m_DisplayMaskMaterial.color = m_Runtime.IsPoweredOn
-                ? new Color(0.30f, 0.05f, 0.04f, 1f)
-                : new Color(0.20f, 0.05f, 0.05f, 1f);
-        }
+        if (m_LampRenderer != null)
+            m_LampRenderer.enabled = m_Runtime.IsPoweredOn;
         if (m_PowerSwitchTransform != null)
         {
             m_PowerSwitchTransform.localPosition = m_Runtime.IsPoweredOn ? m_PowerSwitchOnLocalPosition : m_PowerSwitchOffLocalPosition;
@@ -1349,7 +1461,11 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void RebuildHotspotMarkers()
     {
+        // Destroy old anchors so they are recomputed from the current (open) model state
+        foreach (var anchor in m_HotspotAnchors.Values) if (anchor) Destroy(anchor.gameObject);
+        m_HotspotAnchors.Clear();
         EnsureHotspotAnchors();
+
         foreach (var marker in m_HotspotMarkers.Values) if (marker) Destroy(marker.gameObject);
         m_HotspotMarkers.Clear();
         foreach (var hotspot in Hotspots)
@@ -1357,20 +1473,32 @@ public class DigitronCalculatorController : MonoBehaviour
             var markerObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
             markerObject.name = hotspot.Id;
             markerObject.transform.SetParent(transform, true);
-            markerObject.transform.localScale = Vector3.one * KHotspotScale;
+            // Stretch background to fit the label text
+            var titleLines   = hotspot.Title.Split('\n');
+            var longestLine  = 0;
+            foreach (var ln in titleLines) if (ln.Length > longestLine) longestLine = ln.Length;
+            var bgW = Mathf.Max(1f, longestLine * 0.11f) * KHotspotScale;
+            var bgH = (titleLines.Length > 1 ? 1.7f : 1.0f) * KHotspotScale;
+            markerObject.transform.localScale = new Vector3(bgW, bgH, KHotspotScale);
             var anchor = m_HotspotAnchors.TryGetValue(hotspot.Id, out var hotspotAnchor) ? hotspotAnchor : null;
-            var anchorPoint = anchor ? anchor.position : GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
-            var localCenterWorld = m_ModelInstance.transform.TransformPoint(m_ModelLocalBounds.center);
-            var direction = anchorPoint - localCenterWorld;
-            if (direction.sqrMagnitude < 0.0001f) direction = m_ModelInstance.transform.up;
-            markerObject.transform.position = anchorPoint + direction.normalized * (m_ModelBounds.extents.magnitude * KHotspotOffsetFactor);
+            // Place marker near its anchor mesh, offset in MarkerLocalDir direction
+            var anchorPos = anchor != null
+                ? anchor.position
+                : GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
+            var spreadDist = m_ModelLocalBounds.size.magnitude * 0.14f;
+            var perHotspotDistance = spreadDist * Mathf.Max(1f, hotspot.MarkerLocalDir.magnitude);
+            var worldOffset = m_ModelInstance.transform.TransformDirection(hotspot.MarkerLocalDir.normalized) * perHotspotDistance;
+            var markerPos = anchorPos + worldOffset;
+            markerObject.transform.position = markerPos;
             markerObject.transform.rotation = anchor ? anchor.rotation : m_ModelInstance.transform.rotation;
             var renderer = markerObject.GetComponent<Renderer>();
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             renderer.material = CreateHotspotMaterial();
             var marker = markerObject.AddComponent<DigitronHotspotMarker>();
-            marker.Initialize(this, hotspot.Id, hotspot.Number, m_TargetCamera);
+            try { marker.Initialize(this, hotspot.Id, hotspot.Title); }
+            catch (System.Exception e) { Debug.LogWarning($"[Hotspot] marker init failed for {hotspot.Id}: {e.Message}"); }
+            if (anchor != null) marker.InitLine(anchor);
             m_HotspotMarkers.Add(hotspot.Id, marker);
         }
     }
@@ -1380,10 +1508,55 @@ public class DigitronCalculatorController : MonoBehaviour
         foreach (var marker in m_HotspotMarkers.Values) if (marker) marker.gameObject.SetActive(isVisible);
     }
 
+    private void UpdateHotspotMarkerStates()
+    {
+        foreach (var kv in m_HotspotMarkers)
+            kv.Value?.SetSelected(kv.Key == m_SelectedHotspotId);
+    }
+
+    private void ApplyHotspotHighlight(string selectedId)
+    {
+        if (m_ModelInstance == null) return;
+        var allRenderers = m_ModelInstance.GetComponentsInChildren<Renderer>(true);
+        if (allRenderers == null) return;
+        var hasSelection = !string.IsNullOrEmpty(selectedId);
+
+        string[] selectedKeywords = null;
+        if (hasSelection) KHotspotMeshKeywords.TryGetValue(selectedId, out selectedKeywords);
+
+        if (m_DimBlock == null) m_DimBlock = new MaterialPropertyBlock();
+        m_DimBlock.Clear();
+        m_DimBlock.SetColor("_Color", new Color(0.22f, 0.22f, 0.22f, 1f));
+
+        foreach (var r in allRenderers)
+        {
+            if (r == null) continue;
+            if (!hasSelection || IsRendererForHotspot(r, selectedKeywords))
+                r.SetPropertyBlock(null);
+            else
+                r.SetPropertyBlock(m_DimBlock);
+        }
+    }
+
+    private static bool IsRendererForHotspot(Renderer r, string[] keywords)
+    {
+        if (keywords == null) return false;
+        var name = r.gameObject.name.ToLowerInvariant();
+        foreach (var kw in keywords) if (name.Contains(kw)) return true;
+        // FBX imports often put MeshRenderer on a child of the named node — check parent name too
+        var parent = r.transform.parent;
+        if (parent != null)
+        {
+            var parentName = parent.name.ToLowerInvariant();
+            foreach (var kw in keywords) if (parentName.Contains(kw)) return true;
+        }
+        return false;
+    }
+
     private static Material CreateHotspotMaterial()
     {
         var material = new Material(Shader.Find("Unlit/Color"));
-        material.color = new Color(0.9f, 0.4f, 0.05f, 1f);
+        material.color = new Color(0.96f, 0.92f, 0.80f, 1f); // cream
         return material;
     }
 
@@ -1428,14 +1601,70 @@ public class DigitronCalculatorController : MonoBehaviour
         return bestRenderer ? bestRenderer.transform : null;
     }
 
+    private static Texture2D MakeTex(Color c)
+    {
+        var t = new Texture2D(1, 1);
+        t.SetPixel(0, 0, c);
+        t.Apply();
+        return t;
+    }
+
     private void EnsureGuiStyles()
     {
         if (m_OpenButtonStyle != null) return;
-        m_OpenButtonStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        m_InfoBoxStyle = new GUIStyle(GUI.skin.box) { padding = new RectOffset(16, 16, 16, 16), fontSize = 16, alignment = TextAnchor.UpperLeft };
-        m_InfoTitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold, wordWrap = true };
-        m_KeyButtonStyle = new GUIStyle(GUI.skin.button) { alignment = TextAnchor.MiddleCenter, fontSize = 12, fontStyle = FontStyle.Bold };
-        m_DisplayStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 24, fontStyle = FontStyle.Bold };
+
+        var panelTex    = MakeTex(new Color(0.06f, 0.06f, 0.10f, 0.93f));
+        var btnTex      = MakeTex(new Color(0.14f, 0.14f, 0.20f, 0.96f));
+        var btnActiveTex = MakeTex(new Color(0.22f, 0.22f, 0.32f, 0.96f));
+
+        m_OpenButtonStyle = new GUIStyle(GUI.skin.button);
+        m_OpenButtonStyle.fontSize    = 16;
+        m_OpenButtonStyle.fontStyle   = FontStyle.Bold;
+        m_OpenButtonStyle.alignment   = TextAnchor.MiddleCenter;
+        m_OpenButtonStyle.normal.background  = btnTex;
+        m_OpenButtonStyle.normal.textColor   = Color.white;
+        m_OpenButtonStyle.hover.background   = btnActiveTex;
+        m_OpenButtonStyle.hover.textColor    = Color.white;
+        m_OpenButtonStyle.active.background  = btnActiveTex;
+        m_OpenButtonStyle.active.textColor   = Color.white;
+
+        m_InfoBoxStyle = new GUIStyle(GUI.skin.box);
+        m_InfoBoxStyle.padding = new RectOffset(0, 0, 0, 0);
+        m_InfoBoxStyle.border  = new RectOffset(0, 0, 0, 0);
+        m_InfoBoxStyle.normal.background = panelTex;
+
+        m_InfoTitleStyle = new GUIStyle(GUI.skin.label);
+        m_InfoTitleStyle.fontSize   = 15;
+        m_InfoTitleStyle.fontStyle  = FontStyle.Bold;
+        m_InfoTitleStyle.wordWrap   = false;
+        m_InfoTitleStyle.normal.textColor = Color.white;
+
+        m_InfoDescStyle = new GUIStyle(GUI.skin.label);
+        m_InfoDescStyle.fontSize  = 12;
+        m_InfoDescStyle.wordWrap  = true;
+        m_InfoDescStyle.normal.textColor = new Color(0.80f, 0.80f, 0.80f);
+
+        m_CloseButtonStyle = new GUIStyle(GUI.skin.button);
+        m_CloseButtonStyle.fontSize   = 20;
+        m_CloseButtonStyle.fontStyle  = FontStyle.Bold;
+        m_CloseButtonStyle.alignment  = TextAnchor.MiddleCenter;
+        m_CloseButtonStyle.normal.textColor = new Color(0.65f, 0.65f, 0.65f);
+        m_CloseButtonStyle.hover.textColor  = Color.white;
+        m_CloseButtonStyle.normal.background  = MakeTex(new Color(0f, 0f, 0f, 0f));
+        m_CloseButtonStyle.hover.background   = MakeTex(new Color(1f, 1f, 1f, 0.08f));
+        m_CloseButtonStyle.active.background  = MakeTex(new Color(1f, 1f, 1f, 0.08f));
+        m_CloseButtonStyle.active.textColor   = Color.white;
+        m_CloseButtonStyle.border = new RectOffset(0, 0, 0, 0);
+
+        m_KeyButtonStyle = new GUIStyle(GUI.skin.button);
+        m_KeyButtonStyle.alignment = TextAnchor.MiddleCenter;
+        m_KeyButtonStyle.fontSize  = 12;
+        m_KeyButtonStyle.fontStyle = FontStyle.Bold;
+
+        m_DisplayStyle = new GUIStyle(GUI.skin.label);
+        m_DisplayStyle.alignment = TextAnchor.MiddleRight;
+        m_DisplayStyle.fontSize  = 24;
+        m_DisplayStyle.fontStyle = FontStyle.Bold;
         m_DisplayStyle.normal.textColor = new Color(1f, 0.88f, 0.80f, 1f);
 #if UNITY_EDITOR
         var font = AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
