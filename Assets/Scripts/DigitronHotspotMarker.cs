@@ -10,7 +10,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     {
         m_Controller = controller;
         m_HotspotId = hotspotId;
-        EnsureNumberLabel(hotspotNumber);
+        EnsureNumberLabel(hotspotNumber, hotspotId);
     }
 
     private void OnMouseDown()
@@ -23,21 +23,24 @@ public class DigitronHotspotMarker : MonoBehaviour
         m_Controller.SelectHotspot(m_HotspotId);
     }
 
-    private void EnsureNumberLabel(int hotspotNumber)
+    private void EnsureNumberLabel(int hotspotNumber, string labelId)
     {
         if (m_NumberLabel == null)
         {
             var labelObject = new GameObject("Label");
             labelObject.transform.SetParent(transform, false);
-            labelObject.transform.localPosition = new Vector3(0f, 0f, -0.01f);
+            // Offset slightly toward camera (marker local -Z faces camera after LookAt+Rotate180)
+            labelObject.transform.localPosition = new Vector3(0f, 0f, -0.15f);
             labelObject.transform.localRotation = Quaternion.identity;
-            labelObject.transform.localScale = Vector3.one * 0.18f;
+            // Keep scale 1 so characterSize maps directly to marker local units
+            labelObject.transform.localScale = Vector3.one;
 
             m_NumberLabel = labelObject.AddComponent<TextMesh>();
             m_NumberLabel.anchor = TextAnchor.MiddleCenter;
             m_NumberLabel.alignment = TextAlignment.Center;
-            m_NumberLabel.fontSize = 64;
-            m_NumberLabel.characterSize = 0.12f;
+            m_NumberLabel.fontSize = 96;
+            // characterSize in marker local units — marker world scale ~0.04 so 0.6 → ~2.4cm visible
+            m_NumberLabel.characterSize = 0.6f;
             m_NumberLabel.color = Color.white;
 
             var renderer = m_NumberLabel.GetComponent<MeshRenderer>();
@@ -45,6 +48,6 @@ public class DigitronHotspotMarker : MonoBehaviour
             renderer.receiveShadows = false;
         }
 
-        m_NumberLabel.text = hotspotNumber.ToString();
+        m_NumberLabel.text = $"{hotspotNumber} {labelId}";
     }
 }

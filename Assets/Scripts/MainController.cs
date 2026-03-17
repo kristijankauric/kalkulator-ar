@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Imagine.WebAR;
 #if UNITY_EDITOR
@@ -22,6 +23,7 @@ public class MainController : MonoBehaviour
 #if UNITY_EDITOR
     private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx";
 #endif
+    internal static readonly Dictionary<string, Vector3> HotspotNormalizedAnchors = new Dictionary<string, Vector3>();
     private const string KDigitronRootName = "Digitron Calculator Root";
     private const string KDigitronModelName = "Digitron Model";
     private const string KEditorPreviewCameraName = "Editor Preview Camera";
@@ -44,6 +46,7 @@ public class MainController : MonoBehaviour
 #if UNITY_EDITOR
         if (Application.isPlaying && m_EnableDigitronMode && m_EnableEditorInstantPreview)
         {
+            TryBuildHotspotNormalizedAnchors();
             CleanupExtraDigitronSceneObjects();
             PrepareEditorPreviewScene();
             CacheDigitronParent();
@@ -449,6 +452,52 @@ public class MainController : MonoBehaviour
                 Object.DestroyImmediate(candidate.gameObject);
             }
         }
+    }
+
+    private static void TryBuildHotspotNormalizedAnchors()
+    {
+        HotspotNormalizedAnchors.Clear();
+
+        // Find "Hotspots" parent anywhere in scene (may be child of MainController, scene model, or standalone)
+        var hotspotsObj = FindSceneGameObject("Hotspots");
+        if (!hotspotsObj || hotspotsObj.transform.childCount == 0) return;
+        var hotspotsParent = hotspotsObj.transform;
+
+        // Use the scene model's renderer bounds for normalization if available
+        var sceneModel = FindSceneGameObject("db801-novo-odvojene-tipke");
+        Bounds bounds;
+        if (sceneModel)
+        {
+            var renderers = sceneModel.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) return;
+            bounds = renderers[0].bounds;
+            for (var i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+        }
+        else
+        {
+            // Fallback: derive bounds from hotspot child positions
+            bounds = new Bounds(hotspotsParent.GetChild(0).position, Vector3.zero);
+            foreach (Transform child in hotspotsParent) bounds.Encapsulate(child.position);
+            bounds.Expand(0.05f);
+        }
+
+        foreach (Transform child in hotspotsParent)
+        {
+            var id = child.name.ToLowerInvariant();
+            foreach (var knownId in new[] { "housing", "keyboard", "board", "chips", "batteries", "display" })
+            {
+                if (!id.Contains(knownId)) continue;
+                var p = child.position;
+                var normalized = new Vector3(
+                    bounds.size.x > 0f ? (p.x - bounds.min.x) / bounds.size.x : 0.5f,
+                    bounds.size.y > 0f ? (p.y - bounds.min.y) / bounds.size.y : 0.5f,
+                    bounds.size.z > 0f ? (p.z - bounds.min.z) / bounds.size.z : 0.5f);
+                HotspotNormalizedAnchors[knownId] = normalized;
+                Debug.Log($"[Hotspot] {knownId} -> normalized {normalized:F3} (world {p:F3})");
+                break;
+            }
+        }
+        Debug.Log($"[Hotspot] Built {HotspotNormalizedAnchors.Count} anchors from '{hotspotsObj.name}' (parent: {(hotspotsObj.transform.parent ? hotspotsObj.transform.parent.name : "none")})");
     }
 
     private static void CleanupExtraDigitronSceneObjects()

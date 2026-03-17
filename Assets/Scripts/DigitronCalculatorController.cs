@@ -281,6 +281,7 @@ public class DigitronCalculatorController : MonoBehaviour
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
         UpdateLampFacingCamera();
         UpdateDisplayTextVisibility();
+        UpdateHotspotMarkersFacingCamera();
         HandleCalculatorPointerInput();
     }
 
@@ -288,7 +289,7 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (!m_ModelInstance || !m_TargetCamera || m_State == DigitronState.Unplaced) return;
         EnsureGuiStyles();
-        if (m_State == DigitronState.PlacedClosed || m_State == DigitronState.Opened) DrawToggleButton();
+        if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
     }
 
@@ -888,9 +889,13 @@ public class DigitronCalculatorController : MonoBehaviour
                 continue;
             }
 
+            var normalizedAnchor = MainController.HotspotNormalizedAnchors.TryGetValue(hotspot.Id, out var sceneAnchor)
+                ? sceneAnchor
+                : hotspot.NormalizedViewportAnchor;
+
             var anchorObject = new GameObject($"Hotspot Anchor {hotspot.Id}");
             anchorObject.transform.SetParent(m_ModelInstance.transform, false);
-            anchorObject.transform.position = GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
+            anchorObject.transform.position = GetWorldPointForNormalizedAnchor(normalizedAnchor);
             anchorObject.transform.rotation = m_ModelInstance.transform.rotation;
             m_HotspotAnchors[hotspot.Id] = anchorObject.transform;
         }
@@ -949,6 +954,17 @@ public class DigitronCalculatorController : MonoBehaviour
         if (!m_LampRenderer || !m_TargetCamera) return;
         m_LampRenderer.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
         m_LampRenderer.transform.Rotate(0f, 180f, 0f);
+    }
+
+    private void UpdateHotspotMarkersFacingCamera()
+    {
+        if (!m_TargetCamera) return;
+        foreach (var marker in m_HotspotMarkers.Values)
+        {
+            if (!marker || !marker.gameObject.activeSelf) continue;
+            marker.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
+            marker.transform.Rotate(0f, 180f, 0f);
+        }
     }
 
     private void UpdateDisplayTextVisibility()
@@ -1367,7 +1383,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private static Material CreateHotspotMaterial()
     {
         var material = new Material(Shader.Find("Unlit/Color"));
-        material.color = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+        material.color = new Color(0.9f, 0.4f, 0.05f, 1f);
         return material;
     }
 
