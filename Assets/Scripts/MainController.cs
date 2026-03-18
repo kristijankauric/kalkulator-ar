@@ -296,9 +296,14 @@ public class MainController : MonoBehaviour
 
     private GameObject LoadDigitronPrefab()
     {
-        if (m_DigitronPrefab)
+        if (m_DigitronPrefab && IsExpectedDigitronPrefab(m_DigitronPrefab))
         {
             return m_DigitronPrefab;
+        }
+
+        if (m_DigitronPrefab)
+        {
+            Debug.LogWarning($"[MainController] Ignoring scene-assigned digitron prefab '{m_DigitronPrefab.name}' because it is not DB_801_03.");
         }
 
 #if UNITY_EDITOR
@@ -315,6 +320,17 @@ public class MainController : MonoBehaviour
             LogWebRuntime($"Loaded runtime prefab from Resources/{KDigitronResourcePath}");
         }
         return resourcePrefab;
+    }
+
+    private static bool IsExpectedDigitronPrefab(GameObject prefab)
+    {
+        if (!prefab)
+        {
+            return false;
+        }
+
+        var name = prefab.name;
+        return name.Contains("DB_801_03") || name.Contains("DB 801 03");
     }
 
     private string GetDigitronPrefabMissingMessage()

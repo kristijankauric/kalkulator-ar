@@ -196,30 +196,42 @@ public class DigitronCalculatorController : MonoBehaviour
         m_ModelInstance = modelInstance;
         m_TargetCamera = targetCamera ? targetCamera : Camera.main;
         m_RelevantRenderers.Clear();
-        NormalizeModelScale(targetSize);
-        RecalculateBounds();
-        m_Animator = m_ModelInstance.GetComponentInChildren<Animator>(true);
-        if (m_Animator != null)
+
+        try
         {
-            m_Animator.enabled = false;
-            m_Animator.keepAnimatorStateOnDisable = true;
+            NormalizeModelScale(targetSize);
+            RecalculateBounds();
+            m_Animator = m_ModelInstance.GetComponentInChildren<Animator>(true);
+            if (m_Animator != null)
+            {
+                m_Animator.enabled = false;
+                m_Animator.keepAnimatorStateOnDisable = true;
+            }
+            m_LegacyAnimation = m_ModelInstance.GetComponentInChildren<Animation>(true);
+            TryPrepareAnimation();
+            TryPrepareManualOpenTransform();
+            ApplyClosedPose();
+            EnsureDisplayAnchor();
+            EnsureDisplayText();
+            EnsureLampVisual();
+            EnsureDisplayMask();
+            EnsureHotspotAnchors();
+            RebuildKeyTargets();
+            RebuildHotspotMarkers();
+            ResetCalculatorRuntime();
+            SetHotspotsVisible(false);
+            SetCalculatorInteractionVisible(true);
+            m_State = DigitronState.PlacedClosed;
+            m_ModelInstance.SetActive(true);
         }
-        m_LegacyAnimation = m_ModelInstance.GetComponentInChildren<Animation>(true);
-        TryPrepareAnimation();
-        TryPrepareManualOpenTransform();
-        ApplyClosedPose();
-        EnsureDisplayAnchor();
-        EnsureDisplayText();
-        EnsureLampVisual();
-        EnsureDisplayMask();
-        EnsureHotspotAnchors();
-        RebuildKeyTargets();
-        RebuildHotspotMarkers();
-        ResetCalculatorRuntime();
-        SetHotspotsVisible(false);
-        SetCalculatorInteractionVisible(true);
-        m_State = DigitronState.PlacedClosed;
-        m_ModelInstance.SetActive(true);
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Digitron] Initialize failed, entering safe closed state: {e}");
+            m_State = DigitronState.PlacedClosed;
+            m_ModelInstance.SetActive(true);
+            SetHotspotsVisible(false);
+            SetCalculatorInteractionVisible(false);
+        }
     }
 
     public void ResetDigitronState()
