@@ -11,9 +11,11 @@ public class MainController : MonoBehaviour
     [SerializeField] private GameObject m_DigitronPrefab;
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
+    private float m_WebTargetScaleMultiplier = 2.0f;
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
+    private Vector3 m_WebSpawnLocalEulerAngles = Vector3.zero;
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
@@ -31,6 +33,7 @@ public class MainController : MonoBehaviour
     private DigitronCalculatorController m_DigitronController;
     private Transform m_DigitronParent;
     private Camera m_RuntimeCamera;
+    private bool m_WorldTrackerHooksBound;
 
     private void Awake()
     {
@@ -39,8 +42,13 @@ public class MainController : MonoBehaviour
 
     private void Start()
     {
+        EnsureWorldTrackerHooks();
+
 #if UNITY_WEBGL && !UNITY_EDITOR
-        LibraryManager.HandleAppInitialized();
+        CleanupLegacyRuntimeSceneChildren();
+        ConfigureWebRuntimeCamera();
+        LogWebRuntime("Start -> JSShowUI");
+        LibraryManager.JSShowUI();
 #endif
 
 #if UNITY_EDITOR
@@ -65,7 +73,7 @@ public class MainController : MonoBehaviour
     public void OnPlacedOrigin()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        LibraryManager.JSPlaceOrigin();
+        LogWebRuntime("OnPlacedOrigin received");
 #endif
 
         if (m_EnableDigitronMode)
@@ -77,7 +85,7 @@ public class MainController : MonoBehaviour
     public void OnResetOrigin()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        LibraryManager.JSResetOrigin();
+        LogWebRuntime("OnResetOrigin received");
 #endif
 
         if (m_EnableDigitronMode)
@@ -101,18 +109,20 @@ public class MainController : MonoBehaviour
         }
 #endif
 
-        var anchor = FindSceneGameObject("Jankec Anchor");
-        if (anchor)
+        if (TrySetDigitronParentFromSceneObject("Jankec Anchor")) return;
+        if (TrySetDigitronParentFromSceneObject("Content")) return;
+        if (TrySetDigitronParentFromSceneObject("MainObject")) return;
+
+        var tracker = FindObjectOfType<WorldTracker>();
+        if (tracker)
         {
-            m_DigitronParent = anchor.transform;
+            m_DigitronParent = tracker.transform;
+            LogWebRuntime($"Digitron parent resolved: '{m_DigitronParent.name}' (WorldTracker fallback)");
             return;
         }
 
-        var content = FindSceneGameObject("Content");
-        if (content)
-        {
-            m_DigitronParent = content.transform;
-        }
+        m_DigitronParent = transform;
+        LogWebRuntime($"Digitron parent resolved: '{m_DigitronParent.name}' (MainController fallback)");
     }
 
     private void SpawnDigitron()
@@ -123,6 +133,7 @@ public class MainController : MonoBehaviour
             Debug.LogWarning("Digitron parent transform was not found.");
             return;
         }
+        LogWebRuntime($"SpawnDigitron using parent '{m_DigitronParent.name}'");
 
         CacheExistingDigitronController();
 
@@ -134,6 +145,7 @@ public class MainController : MonoBehaviour
             m_DigitronController.ResetDigitronState();
             m_DigitronController.gameObject.SetActive(true);
             m_DigitronController.HandlePlaced(GetActiveRuntimeCamera());
+            LogWebRuntime("SpawnDigitron reused existing controller instance");
 #if UNITY_EDITOR
             if (Application.isPlaying && m_EnableEditorInstantPreview)
             {
@@ -144,10 +156,13 @@ public class MainController : MonoBehaviour
         }
 
         var digitronPrefab = LoadDigitronPrefab();
-        var modelInstance = TryUseExistingEditorPreview(digitronPrefab);
+        GameObject modelInstance = null;
+#if UNITY_EDITOR
+        modelInstance = TryUseExistingEditorPreview(digitronPrefab);
+#endif
         if (!modelInstance && !digitronPrefab)
         {
-            Debug.LogError($"Digitron prefab not found. Checked editor asset at '{KDigitronEditorAssetPath}' and Resources/{KDigitronResourcePath}");
+            Debug.LogError(GetDigitronPrefabMissingMessage());
             return;
         }
 
@@ -171,6 +186,7 @@ public class MainController : MonoBehaviour
         try
         {
             m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize());
+            LogWebRuntime($"SpawnDigitron initialized new instance '{digitronRoot.name}'");
         }
         catch (System.Exception e)
         {
@@ -213,7 +229,11 @@ public class MainController : MonoBehaviour
             return Quaternion.Euler(m_EditorPreviewLocalEulerAngles);
         }
 #endif
+#if UNITY_WEBGL && !UNITY_EDITOR
+        return Quaternion.Euler(m_WebSpawnLocalEulerAngles);
+#else
         return Quaternion.identity;
+#endif
     }
 
     private float GetTargetDigitronSize()
@@ -223,6 +243,9 @@ public class MainController : MonoBehaviour
         {
             return m_TargetDigitronSize * m_EditorPreviewScaleMultiplier;
         }
+#endif
+#if UNITY_WEBGL && !UNITY_EDITOR
+        return m_TargetDigitronSize * m_WebTargetScaleMultiplier;
 #endif
         return m_TargetDigitronSize;
     }
@@ -268,7 +291,97 @@ public class MainController : MonoBehaviour
         }
 #endif
 
-        return Resources.Load<GameObject>(KDigitronResourcePath);
+        var resourcePrefab = Resources.Load<GameObject>(KDigitronResourcePath);
+        if (resourcePrefab)
+        {
+            LogWebRuntime($"Loaded runtime prefab from Resources/{KDigitronResourcePath}");
+        }
+        return resourcePrefab;
+    }
+
+    private string GetDigitronPrefabMissingMessage()
+    {
+#if UNITY_EDITOR
+        return $"Digitron prefab not found. Checked editor asset at '{KDigitronEditorAssetPath}' and Resources/{KDigitronResourcePath}";
+#else
+        return $"Digitron prefab not found. Checked Resources/{KDigitronResourcePath}";
+#endif
+    }
+
+    private bool TrySetDigitronParentFromSceneObject(string objectName)
+    {
+        var sceneObject = FindSceneGameObject(objectName);
+        if (!sceneObject)
+        {
+            return false;
+        }
+
+        m_DigitronParent = sceneObject.transform;
+        LogWebRuntime($"Digitron parent resolved: '{objectName}'");
+        return true;
+    }
+
+    private static void LogWebRuntime(string message)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        Debug.Log($"[WebAR][MainController] {message}");
+#endif
+    }
+
+    private void ConfigureWebRuntimeCamera()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        var cam = GetActiveRuntimeCamera();
+        if (!cam)
+        {
+            return;
+        }
+
+        cam.allowHDR = false;
+        cam.allowMSAA = false;
+        LogWebRuntime("Configured runtime camera (HDR/MSAA disabled)");
+#endif
+    }
+
+    private void EnsureWorldTrackerHooks()
+    {
+        if (m_WorldTrackerHooksBound)
+        {
+            return;
+        }
+
+        var tracker = FindObjectOfType<WorldTracker>();
+        if (tracker == null || tracker.eventSettings == null)
+        {
+            return;
+        }
+
+        tracker.eventSettings.OnPlacedOrigin.RemoveListener(OnPlacedOrigin);
+        tracker.eventSettings.OnResetOrigin.RemoveListener(OnResetOrigin);
+        tracker.eventSettings.OnPlacedOrigin.AddListener(OnPlacedOrigin);
+        tracker.eventSettings.OnResetOrigin.AddListener(OnResetOrigin);
+        m_WorldTrackerHooksBound = true;
+
+        LogWebRuntime("WorldTracker hooks bound at runtime");
+    }
+
+    private void CleanupLegacyRuntimeSceneChildren()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        var toRemove = new List<GameObject>();
+        foreach (Transform child in transform)
+        {
+            if (child == null) continue;
+            if (child.name == "Hotspots") continue;
+            toRemove.Add(child.gameObject);
+        }
+
+        foreach (var go in toRemove)
+        {
+            LogWebRuntime($"Removing legacy runtime child '{go.name}' from MainController");
+            Destroy(go);
+        }
+#endif
     }
 
 #if UNITY_EDITOR
@@ -573,6 +686,13 @@ public class MainController : MonoBehaviour
         }
 
         return null;
+    }
+#endif
+
+#if !UNITY_EDITOR
+    private static GameObject FindSceneGameObject(string objectName)
+    {
+        return GameObject.Find(objectName);
     }
 #endif
 }

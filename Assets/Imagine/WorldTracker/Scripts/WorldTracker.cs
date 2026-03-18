@@ -118,6 +118,18 @@ namespace Imagine.WebAR
             }
 
             ResetOrigin();
+            if (usePlacementIndicator)
+            {
+                placementIndicatorSettings.placed = false;
+                if (placementIndicatorSettings.placementIndicator != null)
+                {
+                    placementIndicatorSettings.placementIndicator.SetActive(true);
+                }
+                if (mainObject != null)
+                {
+                    mainObject.SetActive(false);
+                }
+            }
 
             StartGPS();
 
@@ -217,11 +229,26 @@ namespace Imagine.WebAR
             }
             else
             {
-                //Debug.Log("no hit!");
+                // Fallback placement when camera ray does not intersect the XZ plane
+                // (e.g., camera is almost parallel to the ground in desktop/webcam preview).
+                var forward = trackerCamera.transform.forward;
+                forward.y = 0f;
+                if (forward.sqrMagnitude < 0.0001f)
+                {
+                    forward = trackerCamera.transform.rotation * Vector3.forward;
+                    forward.y = 0f;
+                }
+                if (forward.sqrMagnitude < 0.0001f)
+                {
+                    forward = Vector3.forward;
+                }
+                forward.Normalize();
 
-                if (ps.placementIndicator.activeSelf)
-                    ps.OnPlacementIndicatorHidden?.Invoke();
-                ps.placementIndicator.SetActive(false);
+                var fallbackPos = camPos + (forward * ps.minZ);
+                if (!ps.placementIndicator.activeSelf)
+                    ps.OnPlacementIndicatorShown?.Invoke();
+                ps.placementIndicator.SetActive(true);
+                ps.placementIndicator.transform.position = fallbackPos;
             }
         }
 
@@ -354,15 +381,15 @@ namespace Imagine.WebAR
             if (usePlacementIndicator)
             {
                 var ps = placementIndicatorSettings;
-                if (!ps.placed)
-                {
-                    Debug.LogError("Origin not placed. Call PlaceOrigin() first");
-                    return;
-                }
-
                 ps.placed = false;
-                ps.placementIndicator.SetActive(true);
-                mainObject.SetActive(false);
+                if (ps.placementIndicator != null)
+                {
+                    ps.placementIndicator.SetActive(true);
+                }
+                if (mainObject != null)
+                {
+                    mainObject.SetActive(false);
+                }
             }
             else{
                 if(mode == TrackingMode.MODE_6DOF){

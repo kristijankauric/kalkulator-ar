@@ -566,9 +566,11 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void ApplyClosedPose()
     {
-        if (m_ClosedPoseClip != null || m_OpenAnimationClip != null)
+        // Only sample an animation clip for closed pose when we explicitly have one.
+        // If only the open segment clip exists, keep importer bind pose as "closed".
+        if (m_ClosedPoseClip != null)
         {
-            SampleClipAtTime(m_ClosedPoseClip != null ? m_ClosedPoseClip : m_OpenAnimationClip, m_ClosedPoseTime);
+            SampleClipAtTime(m_ClosedPoseClip, m_ClosedPoseTime);
         }
         if (m_FrontCoverTransform != null) m_FrontCoverTransform.localRotation = m_FrontCoverClosedRotation;
         RecalculateBounds();

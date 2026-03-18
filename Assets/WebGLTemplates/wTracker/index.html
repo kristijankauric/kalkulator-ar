@@ -8,20 +8,8 @@
     <link rel="stylesheet" href="TemplateData/navigation.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <div id="navigation" class="d-none">
-        <div id="header">
-            <img id="button-back" class="d-none" src="TemplateData/back.svg">
-            <div id="title"></div>
-        </div>
-        <div id="description" class="item"></div>
-        <div id="menu-buttons-wrapper">
-            <div id="menu-buttons"></div>
-        </div>
-    </div>
-
     <!-- Place button -->
-     <div id="place-button" class="ui-button d-none" onclick="placeOrigin()">Postavi Jankeca</div>
+     <div id="place-button" class="ui-button d-none" onclick="placeOrigin()">Postavi u prostor</div>
     <!-- Reset button -->
      <div id="reset-button" class="ui-button d-none" onclick="resetOrigin()">Resetiraj</div>
      
@@ -45,7 +33,6 @@
     </div>
 
     <div id="unity-container" class="unity-mobile">
-        <img src="TemplateData/zagorske-price-logo.png" id="zagorske-price-logo" class="d-none">
         <canvas id="unity-canvas"></canvas>
         <div id="unity-loading-bar">
             <div id="unity-logo"></div>
@@ -122,7 +109,6 @@
             StartMotionSensors();
             //Call Start GPS here --> StartGPS();
             loadingBar.style.display = "block";
-            document.getElementById('zagorske-price-logo').classList.remove('d-none');
         }
 
         //Set Facing Mode here ('environment', 'user', '')

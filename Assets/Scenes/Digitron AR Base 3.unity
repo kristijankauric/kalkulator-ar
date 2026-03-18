@@ -1069,7 +1069,7 @@ MonoBehaviour:
     minZ: 0.1
     maxZ: 5
     placementIndicator: {fileID: 4153563435992480452}
-    placed: 1
+    placed: 0
     OnPlacementIndicatorShown:
       m_PersistentCalls:
         m_Calls:

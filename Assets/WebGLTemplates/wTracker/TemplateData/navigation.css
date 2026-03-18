@@ -10,7 +10,7 @@
 }
 
 body {
-    background-image: url('jankec-ar-cover.jpg');
+    background-image: url('pozadina-kalkulatori.jpg');
     background-size: cover;
     background-position-x: center;
     background-repeat: no-repeat;
@@ -208,9 +208,9 @@ body {
 
 #place-button {
     position: absolute;
-    bottom: 10%;
+    bottom: 4%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     font-size: 20px;
     line-height: 1.5em;
     padding: 12px 32px;
