@@ -44,6 +44,8 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
 - Runtime load put (trenutno):
   - `Assets/Resources/Digitron/DB_801_03.fbx`
+- Napomena za model import:
+  - `Assets/Resources/Digitron/DB_801_03.fbx.meta` mora ostati uskladen sa source importer postavkama (materijali ukljuceni), inace runtime daje sivi model bez tekstura.
 - Editor fallback model load put:
   - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx` (uskladeno s aktivnim model source)
 - Web runtime mode:

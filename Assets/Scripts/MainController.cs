@@ -16,7 +16,7 @@ public class MainController : MonoBehaviour
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(180f, 180f, 0f);
+    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
