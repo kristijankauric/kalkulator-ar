@@ -87,15 +87,15 @@
         }
 
         var initialize = async() =>{
-            if (isDesktopPreview) {
-                startUnityRuntime();
-                return;
-            }
-
             var unityCanvas = document.querySelector("#unity-canvas");
             var videoCanvas = document.querySelector("#video-canvas");
             window.arCamera = new ARCamera(unityCanvas, videoCanvas);
             window.wTracker = new WorldTracker(arCamera);
+
+            if (isDesktopPreview) {
+                startUnityRuntime();
+                return;
+            }
             try{
                 await wTracker.initialize("./opencv.js");
                 console.log("World tracker initialized!");   
