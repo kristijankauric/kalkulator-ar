@@ -7,7 +7,7 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
 - Engine: Unity `2022.3.36f1`
 - Primarna platforma: `WebGL` + mobilni browser (WebAR)
 - AR sloj: `Assets/Imagine/Common` i `Assets/Imagine/WorldTracker`
-- Kljucna scena: `Assets/Scenes/Digitron AR Base.unity`
+- Kljucna scena: `Assets/Scenes/Digitron AR Base 3.unity`
 - JS bridge: `Assets/Scripts/LibraryManager.cs` + `Assets/Plugins/Jankec.jslib`
 
 ## 3) Sto tocno gradimo (scope ove faze)
@@ -44,6 +44,9 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
 - Runtime load put (trenutno):
   - `Assets/Resources/Digitron/DB_801_03.fbx`
+- Web runtime mode:
+  - mobile: puni WebAR flow (kamera, placement, reset, otvori + hotspot)
+  - desktop: auto desktop preview bez kamere, s rotacijom i zoom kontrolama
 - GitHub Pages preview flow (novo):
   - deploy source: `docs/` (kopija lokalnog Unity `Build/`)
   - sync skripta: `tools/sync-pages-build.ps1`

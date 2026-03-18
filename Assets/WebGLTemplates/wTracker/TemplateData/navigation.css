@@ -211,17 +211,18 @@ body {
     bottom: 4%;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 20px;
+    font-size: clamp(20px, 3.4vh, 34px);
     line-height: 1.5em;
-    padding: 12px 32px;
+    padding: 16px 42px;
     text-wrap: nowrap;
 }
 
 #reset-button {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 12px;
+    top: 12px;
+    right: 12px;
+    font-size: clamp(14px, 2.2vh, 22px);
+    padding: 10px 20px;
 }
 
 .d-none {

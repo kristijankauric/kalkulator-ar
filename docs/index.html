@@ -48,7 +48,51 @@
     <script src="wtracker.js" type="text/javascript"></script>
     <script src="Build/Build.loader.js"></script>
     <script>
+        const isDesktopPreview = !(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+        window.__DIGITRON_DESKTOP_PREVIEW = isDesktopPreview;
+        let hasStartedUnity = false;
+
+        function startUnityRuntime() {
+            if (hasStartedUnity) return;
+            hasStartedUnity = true;
+
+            const runtimeCanvas = document.querySelector("#unity-canvas");
+            const runtimeLoadingBar = document.querySelector("#unity-loading-bar");
+            const runtimeProgressBarFull = document.querySelector("#unity-progress-bar-full");
+
+            runtimeCanvas.style.width = window.innerWidth + "px";
+            runtimeCanvas.style.height = window.innerHeight + "px";
+            document.getElementById('startARDiv').style.display = 'none';
+            runtimeLoadingBar.style.display = "block";
+
+            createUnityInstance(runtimeCanvas, {
+                    dataUrl: "Build/Build.data",
+                    frameworkUrl: "Build/Build.framework.js",
+                    codeUrl: "Build/Build.wasm",
+                    streamingAssetsUrl: "StreamingAssets",
+                    companyName: "Brojka Kreativnih Produkcija",
+                    productName: "Jankec - Mihanović - Tuheljske Toplice",
+                    productVersion: "0.4.0",
+                    },
+                    (progress) => {
+                        runtimeProgressBarFull.style.width = 100 * progress + "%";
+                    }
+                ).then((unityInstance) => {
+                window.unityInstance = unityInstance;
+                if (!isDesktopPreview) {
+                    RequestWebcam();
+                    StartMotionSensors();
+                }
+                runtimeLoadingBar.style.display = "none";
+            });
+        }
+
         var initialize = async() =>{
+            if (isDesktopPreview) {
+                startUnityRuntime();
+                return;
+            }
+
             var unityCanvas = document.querySelector("#unity-canvas");
             var videoCanvas = document.querySelector("#video-canvas");
             window.arCamera = new ARCamera(unityCanvas, videoCanvas);
@@ -74,33 +118,7 @@
         var loadingBar = document.querySelector("#unity-loading-bar");
         var progressBarFull = document.querySelector("#unity-progress-bar-full");
         function StartAR() {
-            canvas.style.width = window.innerWidth + "px";
-            canvas.style.height = window.innerHeight + "px";
-            
-            document.getElementById('startARDiv').style.display = 'none';
-            createUnityInstance(document.querySelector("#unity-canvas"), {
-                    dataUrl: "Build/Build.data",
-                    frameworkUrl: "Build/Build.framework.js",
-                    codeUrl: "Build/Build.wasm",
-                    streamingAssetsUrl: "StreamingAssets",
-                    companyName: "Brojka Kreativnih Produkcija",
-                    productName: "Jankec - Mihanović - Tuheljske Toplice",
-                    productVersion: "0.4.0",
-                    //webglContextAttributes: { "preserveDrawingBuffer": true },
-                    // matchWebGLToCanvasSize: false, // Uncomment this to separately control WebGL canvas render size and DOM element size.
-                    // devicePixelRatio: 1, // Uncomment this to override low DPI rendering on high DPI displays.
-                    },
-                    (progress) => {
-                        progressBarFull.style.width = 100 * progress + "%";
-                    }
-                ).then((unityInstance) => {
-                window.unityInstance = unityInstance;
-                RequestWebcam();
-                loadingBar.style.display = "none";
-            });
-            StartMotionSensors();
-            StartGPS()
-            loadingBar.style.display = "block";
+            startUnityRuntime();
         }
 
         //Set Facing Mode here ('environment', 'user', '')

@@ -20,7 +20,7 @@ Korisnicki flow:
 - Imagine WebAR / WorldTracker (lokalno u `Assets/Imagine`)
 
 ## Trenutni glavni asseti
-- Scena: `Assets/Scenes/Digitron AR Base.unity`
+- Scena: `Assets/Scenes/Digitron AR Base 3.unity`
 - Runtime kontroler: `Assets/Scripts/MainController.cs`
 - Digitron logika: `Assets/Scripts/DigitronCalculatorController.cs`
 - Model source: `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
@@ -37,6 +37,7 @@ Korisnicki flow:
 - `Otvori` mijenja stanje u `Opened`.
 - Hotspot klik prikazuje ispravan info box.
 - U WebAR toku placement/reset ostaju funkcionalni.
+- U WebGL desktop browseru (bez mobitela) ucita se desktop preview bez kamere.
 
 ## GitHub Pages preview (mobitel)
 Za brzi preview na mobitelu koristimo `docs/` + GitHub Pages deployment workflow.

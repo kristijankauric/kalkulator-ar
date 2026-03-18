@@ -11,6 +11,11 @@ function sendToUnity(target, method) {
 }
 
 function showUI() {
+    if (window.__DIGITRON_DESKTOP_PREVIEW) {
+        if (placeButton) placeButton._show(false);
+        if (resetButton) resetButton._show(false);
+        return;
+    }
     if (placeButton) placeButton._show(true);
     if (resetButton) resetButton._show(false);
     // Force clean unplaced state on first load so placement indicator appears.

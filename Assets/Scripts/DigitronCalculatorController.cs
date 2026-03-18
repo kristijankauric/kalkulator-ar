@@ -260,9 +260,14 @@ public class DigitronCalculatorController : MonoBehaviour
         RebuildKeyTargets();
         RebuildHotspotMarkers();
         RefreshCalculatorPresentation();
+        if (m_State == DigitronState.Unplaced || m_State == DigitronState.Opening || m_State == DigitronState.Closing)
+        {
+            m_State = DigitronState.PlacedClosed;
+        }
         SetHotspotsVisible(m_State == DigitronState.Opened);
         SetCalculatorInteractionVisible(m_State == DigitronState.PlacedClosed);
         m_SelectedHotspotId = null;
+        Debug.Log($"[Digitron] HandlePlaced -> state {m_State}");
     }
 
     public void SelectHotspot(string hotspotId)
@@ -325,11 +330,12 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!m_ModelInstance || !m_TargetCamera || m_State == DigitronState.Unplaced) return;
+        if (!m_ModelInstance || m_State == DigitronState.Unplaced) return;
+        if (!m_TargetCamera) m_TargetCamera = Camera.main;
         EnsureGuiStyles();
         // Responsive font sizes — recalculated every frame based on screen height
         var fs = Screen.height;
-        m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.022f), 11, 20);
+        m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 12, 24);
         m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.022f), 11, 18);
         m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.016f),  9, 14);
         m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
@@ -339,10 +345,10 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void DrawToggleButton()
     {
-        // Responsive: 22% of screen width, 6.5% of screen height
-        var btnW = Screen.width  * 0.22f;
-        var btnH = Screen.height * 0.065f;
-        var margin = Screen.height * 0.025f;
+        // Responsive: larger touch target for mobile runtime
+        var btnW = Screen.width  * 0.3f;
+        var btnH = Screen.height * 0.082f;
+        var margin = Screen.height * 0.022f;
         var rect = new Rect((Screen.width - btnW) * 0.5f, Screen.height - btnH - margin, btnW, btnH);
         if (GUI.Button(rect, m_State == DigitronState.Opened ? "Zatvori" : "Otvori", m_OpenButtonStyle))
             ToggleOpenState();
@@ -408,6 +414,7 @@ public class DigitronCalculatorController : MonoBehaviour
         m_SelectedHotspotId = null;
         SetCalculatorInteractionVisible(false);
         m_State = DigitronState.Opening;
+        Debug.Log("[Digitron] StartOpenSequence -> Opening");
         if (m_OpenAnimationClip != null) m_FallbackRoutine = StartCoroutine(PlayOpenClipRoutine(0f, 1f, DigitronState.Opened));
         else if (m_FrontCoverTransform != null) m_FallbackRoutine = StartCoroutine(PlayManualCoverRoutine(0f, 1f, DigitronState.Opened));
         else m_FallbackRoutine = StartCoroutine(FallbackOpenRoutine());
@@ -421,6 +428,7 @@ public class DigitronCalculatorController : MonoBehaviour
         ApplyHotspotHighlight(null);
         SetHotspotsVisible(false);
         m_State = DigitronState.Closing;
+        Debug.Log("[Digitron] StartCloseSequence -> Closing");
         if (m_OpenAnimationClip != null) m_FallbackRoutine = StartCoroutine(PlayOpenClipRoutine(1f, 0f, DigitronState.PlacedClosed));
         else if (m_FrontCoverTransform != null) m_FallbackRoutine = StartCoroutine(PlayManualCoverRoutine(1f, 0f, DigitronState.PlacedClosed));
         else m_FallbackRoutine = StartCoroutine(FallbackCloseRoutine());
@@ -457,17 +465,30 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private IEnumerator PlayOpenClipRoutine(float startNormalizedTime, float endNormalizedTime, DigitronState completedState)
     {
-        var duration = Mathf.Max(Mathf.Abs(m_OpenEndTime - m_OpenStartTime), 0.01f);
-        var elapsed = 0f;
-        while (elapsed < duration)
+        var finalized = false;
+        try
         {
-            elapsed += Time.deltaTime;
-            SampleOpenClip(Mathf.Lerp(startNormalizedTime, endNormalizedTime, Mathf.Clamp01(elapsed / duration)));
-            yield return null;
-        }
+            var duration = Mathf.Max(Mathf.Abs(m_OpenEndTime - m_OpenStartTime), 0.01f);
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                SampleOpenClip(Mathf.Lerp(startNormalizedTime, endNormalizedTime, Mathf.Clamp01(elapsed / duration)));
+                yield return null;
+            }
 
-        SampleOpenClip(endNormalizedTime);
-        FinalizeStateAfterTransition(completedState);
+            SampleOpenClip(endNormalizedTime);
+            FinalizeStateAfterTransition(completedState);
+            finalized = true;
+        }
+        finally
+        {
+            if (!finalized)
+            {
+                Debug.LogWarning("[Digitron] Open clip routine fail-safe finalize triggered");
+                FinalizeStateAfterTransition(completedState);
+            }
+        }
     }
 
     private IEnumerator PlayManualCoverRoutine(float startNormalizedTime, float endNormalizedTime, DigitronState completedState)
@@ -502,6 +523,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
         m_State = completedState;
         m_FallbackRoutine = null;
+        Debug.Log($"[Digitron] Transition finalized -> {m_State}, hotspotsVisible={isOpened}");
     }
 
     private void TryPrepareAnimation()

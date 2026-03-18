@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Imagine.WebAR;
@@ -11,15 +12,16 @@ public class MainController : MonoBehaviour
     [SerializeField] private GameObject m_DigitronPrefab;
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
-    private float m_WebTargetScaleMultiplier = 2.0f;
+    private float m_WebTargetScaleMultiplier = 4.0f;
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebSpawnLocalEulerAngles = Vector3.zero;
+    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
     private float m_EditorPreviewScaleMultiplier = 1.3f;
+    private bool m_WebDesktopPreviewInitialized;
 
     private const string KDigitronResourcePath = "Digitron/DB_801_03";
 #if UNITY_EDITOR
@@ -47,8 +49,18 @@ public class MainController : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
         CleanupLegacyRuntimeSceneChildren();
         ConfigureWebRuntimeCamera();
-        LogWebRuntime("Start -> JSShowUI");
-        LibraryManager.JSShowUI();
+        ConfigureWebRuntimeLighting();
+        if (IsWebDesktopPreview())
+        {
+            PrepareWebDesktopPreview();
+        }
+        else
+        {
+            SetWorldTrackerInteractionComponents(true);
+            LogWebRuntime("Start -> JSShowUI");
+            LibraryManager.JSShowUI();
+            StartCoroutine(ForceInitialMobileResetRoutine());
+        }
 #endif
 
 #if UNITY_EDITOR
@@ -109,9 +121,9 @@ public class MainController : MonoBehaviour
         }
 #endif
 
+        if (TrySetDigitronParentFromSceneObject("MainObject")) return;
         if (TrySetDigitronParentFromSceneObject("Jankec Anchor")) return;
         if (TrySetDigitronParentFromSceneObject("Content")) return;
-        if (TrySetDigitronParentFromSceneObject("MainObject")) return;
 
         var tracker = FindObjectOfType<WorldTracker>();
         if (tracker)
@@ -198,6 +210,12 @@ public class MainController : MonoBehaviour
         {
             digitronRoot.AddComponent<EditorPreviewMouseOrbit>();
             FrameEditorPlayModeCamera();
+        }
+#endif
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (IsWebDesktopPreview())
+        {
+            AttachDesktopPreviewControls(digitronRoot.transform);
         }
 #endif
     }
@@ -342,6 +360,131 @@ public class MainController : MonoBehaviour
         LogWebRuntime("Configured runtime camera (HDR/MSAA disabled)");
 #endif
     }
+
+    private void ConfigureWebRuntimeLighting()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        RenderSettings.ambientIntensity = 0.62f;
+        var sun = RenderSettings.sun;
+        if (!sun)
+        {
+            var directional = GameObject.Find("Directional Light");
+            if (directional)
+            {
+                sun = directional.GetComponent<Light>();
+            }
+        }
+
+        if (!sun)
+        {
+            return;
+        }
+
+        sun.intensity = 0.75f;
+        sun.color = new Color(1f, 0.96f, 0.9f, 1f);
+        LogWebRuntime("Configured runtime lighting for non-burned AR preview");
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private bool IsWebDesktopPreview()
+    {
+        return !Application.isMobilePlatform;
+    }
+
+    private void PrepareWebDesktopPreview()
+    {
+        if (m_WebDesktopPreviewInitialized)
+        {
+            return;
+        }
+
+        var tracker = FindObjectOfType<WorldTracker>();
+        if (tracker)
+        {
+            tracker.enabled = false;
+        }
+        SetWorldTrackerInteractionComponents(false);
+
+        var placementCanvas = FindSceneGameObject("Placement Canvas");
+        if (placementCanvas)
+        {
+            placementCanvas.SetActive(false);
+        }
+
+        var placementIndicator = FindSceneGameObject("Placement Indicator");
+        if (placementIndicator)
+        {
+            placementIndicator.SetActive(false);
+        }
+
+        var mainObject = FindSceneGameObject("MainObject");
+        if (mainObject)
+        {
+            mainObject.SetActive(true);
+        }
+
+        CacheDigitronParent();
+        SpawnDigitron();
+        FrameWebDesktopCamera();
+        m_WebDesktopPreviewInitialized = true;
+        LogWebRuntime("Web desktop preview initialized");
+    }
+
+    private static void SetWorldTrackerInteractionComponents(bool isEnabled)
+    {
+        var swipe = FindObjectOfType<SwipeToRotateY>();
+        if (swipe) swipe.enabled = isEnabled;
+
+        var pinch = FindObjectOfType<PinchToScale>();
+        if (pinch) pinch.enabled = isEnabled;
+
+        var pan = FindObjectOfType<TwoFingerPan>();
+        if (pan) pan.enabled = isEnabled;
+    }
+
+    private IEnumerator ForceInitialMobileResetRoutine()
+    {
+        yield return null;
+        yield return new WaitForSeconds(0.2f);
+
+        var tracker = FindObjectOfType<WorldTracker>();
+        if (!tracker)
+        {
+            yield break;
+        }
+
+        tracker.ResetOrigin();
+        LogWebRuntime("Forced initial ResetOrigin to show placement indicator on first run");
+    }
+
+    private void FrameWebDesktopCamera()
+    {
+        var cameraObject = GetActiveRuntimeCamera();
+        if (!cameraObject || m_DigitronController == null)
+        {
+            return;
+        }
+
+        var modelBounds = m_DigitronController.GetWorldBounds();
+        var focusPoint = modelBounds.center;
+        var distance = Mathf.Max(modelBounds.extents.magnitude * 2.2f, 0.8f);
+        var camTransform = cameraObject.transform;
+        camTransform.position = focusPoint + new Vector3(0f, modelBounds.extents.y * 0.65f, -distance);
+        camTransform.LookAt(focusPoint);
+    }
+
+    private static void AttachDesktopPreviewControls(Transform target)
+    {
+        var controller = target.GetComponent<WebDesktopOrbitZoom>();
+        if (!controller)
+        {
+            controller = target.gameObject.AddComponent<WebDesktopOrbitZoom>();
+        }
+
+        controller.enabled = true;
+    }
+#endif
 
     private void EnsureWorldTrackerHooks()
     {
