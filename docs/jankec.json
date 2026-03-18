@@ -1,0 +1,81 @@
+{
+    "groups" : [
+        {
+            "label": "Priča o Mihanoviću",
+            "image": "Thumbnails/1_Mihanovic-ikona-prica.jpg",
+            "items": [
+                {
+                    "title" : "Priča o Mihanoviću",
+                    "description" : "Tko je bio Antun Mihanović i što je radio kad nije pisao hrvatsku himnu?",
+                    "image" : "Thumbnails/1_Mihanovic-ikona-prica.jpg",
+                    "link" : "https://8th.io/fsxy6"
+                }
+            ]
+        },
+        {
+            "label": "Zanimljivosti",
+            "image": "Thumbnails/2_Mihanovic-ikona-zanimljivosti.jpg",
+            "description": "Za one koji žele znati više!",
+            "items": [
+                {
+                    "title" : "OSMAN I MARKETING",
+                    "description" : "Kakve veze imaju Osman i marketing?",
+                    "image" : "Thumbnails/2-1_Mihanovic-ikona-zanimljivosti-pricica-1.jpg",
+                    "story" : "JANKEC_OSMAN",
+                    "transcript" : "Mihanović je 1818. u Veneciji pronašao neobjavljeni rukopis “Osmana” Ivana Gundulića. Pokušao ga je objaviti, a putem javnoga poziva “znanosti i narodnoga jezika priateljom” pozvao je na pretplatu planiranog izdanja uz riječi: “Bilo bi za nas doista sramotno da nas neki narodi, naši rođaci, nadvladaju u količini objavljenih dela”. Na njegovu žalost taj lukavi marketinški pristup nije privukao dovoljno financijske potpore. Na kraju, taj klasik ranohrvatske književnosti je objavljen 1826. godine, ali bez Mihanovićevog sudjelovanja."
+                },
+                {
+                    "title" : "DIPLOMATSKI DON JUAN",
+                    "description" : "Diplomatski don Juan!",
+                    "image" : "Thumbnails/2-2_Mihanovic-ikona-zanimljivosti-pricica-2.jpg",
+                    "story" : "JANKEC_DON",
+                    "transcript": "Kao austrijski diplomat Mihanović je 1836. postavljen za konzula u Beogradu. Tamo se ludo zaljubio u Anku, nećakinju srpskog kneza Miloša Obrenovića, kojoj je posvetio neke od svojih najljepših soneta. Iako je njoj laskalo postati suprugom austrijskog konzula, knez Miloš se usprotivio ideji da se njegova rodbina udaje za austrijske podanike, pa je Mihanović postao persona non grata na srpskom dvoru i morao se odseliti iz Beograda i rastati od Anke. No, nije dugo bio slomljenog srca. Već 1839. postaje konzul u Solunu, gdje je uskoro oženio Grkinju."
+                },
+                {
+                    "title" : "MIHANOVIĆEVA ZBIRKA STAROSLAVENSKIH SPISA",
+                    "description" : "Mihanovićeva zbirka staroslavenskih spisa.",
+                    "image" : "Thumbnails/2-3_Mihanovic-ikona-zanimljivosti-pricica-3.jpg",
+                    "story" : "JANKEC_ZBIRKA",
+                    "transcript": "Na čestim putovanjima Mihanović je obilazio knjižare, samostane i manastire istražujući stare listine i rukopise na južnoslavenskim jezicima. Neke od spisa spasio je iz grčkih manastira jer su Grci od tih njima nevažnih starih papira izrađivali fišeke ili s njima potpaljivali vatru. Glagoljički zapisi “Zografsko evanđelje” s kraja 10. stoljeća i “Mihanovićev odlomak Apostola” iz 12. stoljeća ubrajaju se u njegova najvažnija otkrića. Mihanovićeva zbirka staroslavenskih spisa danas se čuva u HAZU."
+                }
+            ]
+        },
+        {
+            "label": "Oživi bistu!",
+            "image": "Thumbnails/3_Mihanovic-ikona-bista.jpg",
+            "items": [
+                {
+                    "title" : "Bista Antuna Mihanovića",
+                    "description" : "Želiš li vidjeti i čuti Mihanovićevu bistu kako recitira himnu Republike Hrvatske?",
+                    "image" : "Thumbnails/3_Mihanovic-ikona-bista.jpg",
+                    "link": "https://8th.io/yd37c"
+                }
+            ]
+        },
+        {
+            "label": "Interaktivna karta",
+            "image": "Thumbnails/4_Mihanovic-ikona-karta.jpg",
+            "description": "Interaktivna Karta Zagorja",
+            "items": [
+                {
+                    "title" : "Interaktivna Karta Zagorja",
+                    "description" : "Interaktivna Karta Zagorja",
+                    "image" : "Thumbnails/4_Mihanovic-ikona-karta.jpg",
+                    "link" : "https://mik.brojka.hr"
+                }
+            ]
+        },
+        {
+            "label": "Upute za korištenje",
+            "image" : "Thumbnails/5_Mihanovic-ikona-upute.jpg",
+            "description": "Što, kako i zašto?!?",
+            "items": [
+                {
+                    "title" : "Upute za korištenje",
+                    "description" : "Što, kako i zašto?!?",
+                    "image" : "Thumbnails/5_Mihanovic-ikona-upute.jpg"
+                }
+            ]
+        }
+    ]
+}

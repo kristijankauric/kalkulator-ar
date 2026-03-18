@@ -37,3 +37,14 @@ Korisnicki flow:
 - `Otvori` mijenja stanje u `Opened`.
 - Hotspot klik prikazuje ispravan info box.
 - U WebAR toku placement/reset ostaju funkcionalni.
+
+## GitHub Pages preview (mobitel)
+Za brzi preview na mobitelu koristimo `docs/` + GitHub Pages deployment workflow.
+
+1. Napravi svjezi Unity WebGL build u lokalni `Build/`.
+2. Sinkroniziraj build u `docs/`:
+   - `powershell -ExecutionPolicy Bypass -File .\tools\sync-pages-build.ps1`
+3. Commit + push (`docs/` i workflow).
+4. U GitHub repo settings ukljuci Pages source: `GitHub Actions`.
+5. Nakon uspjesnog workflowa otvori URL:
+   - `https://<github-user>.github.io/<repo-name>/`

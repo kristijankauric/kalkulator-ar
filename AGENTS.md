@@ -44,6 +44,10 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
 - Runtime load put (trenutno):
   - `Assets/Resources/Digitron/DB_801_03.fbx`
+- GitHub Pages preview flow (novo):
+  - deploy source: `docs/` (kopija lokalnog Unity `Build/`)
+  - sync skripta: `tools/sync-pages-build.ps1`
+  - workflow: `.github/workflows/deploy-pages.yml`
 
 ## 6) Poznati operativni rizici
 - U Editor `Game` pogledu AR kamera moze davati crn ekran ako ostane aktivan AR feed flow.
