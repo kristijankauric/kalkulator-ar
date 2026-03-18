@@ -25,7 +25,7 @@ public class MainController : MonoBehaviour
 
     private const string KDigitronResourcePath = "Digitron/DB_801_03";
 #if UNITY_EDITOR
-    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/DB_801_03.fbx";
+    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx";
 #endif
     internal static readonly Dictionary<string, Vector3> HotspotNormalizedAnchors = new Dictionary<string, Vector3>();
     private const string KDigitronRootName = "Digitron Calculator Root";
@@ -296,14 +296,9 @@ public class MainController : MonoBehaviour
 
     private GameObject LoadDigitronPrefab()
     {
-        if (m_DigitronPrefab && IsExpectedDigitronPrefab(m_DigitronPrefab))
-        {
-            return m_DigitronPrefab;
-        }
-
         if (m_DigitronPrefab)
         {
-            Debug.LogWarning($"[MainController] Ignoring scene-assigned digitron prefab '{m_DigitronPrefab.name}' because it is not DB_801_03.");
+            return m_DigitronPrefab;
         }
 
 #if UNITY_EDITOR
@@ -320,17 +315,6 @@ public class MainController : MonoBehaviour
             LogWebRuntime($"Loaded runtime prefab from Resources/{KDigitronResourcePath}");
         }
         return resourcePrefab;
-    }
-
-    private static bool IsExpectedDigitronPrefab(GameObject prefab)
-    {
-        if (!prefab)
-        {
-            return false;
-        }
-
-        var name = prefab.name;
-        return name.Contains("DB_801_03") || name.Contains("DB 801 03");
     }
 
     private string GetDigitronPrefabMissingMessage()

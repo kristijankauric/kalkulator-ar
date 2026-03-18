@@ -39,15 +39,16 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `Otvori` UI
   - hotspotove i info panel
 - Build scena je postavljena na:
-  - `ProjectSettings/EditorBuildSettings.asset` -> `Assets/Scenes/Digitron AR Base.unity`
+  - `ProjectSettings/EditorBuildSettings.asset` -> `Assets/Scenes/Digitron AR Base 3.unity`
 - Model source-of-truth (aktivni):
-  - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
+  - Scene-assigned prefab na `MainController`:
+    `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
 - Runtime load put (trenutno):
   - `Assets/Resources/Digitron/DB_801_03.fbx`
 - Napomena za model import:
   - `Assets/Resources/Digitron/DB_801_03.fbx.meta` mora ostati uskladen sa source importer postavkama (materijali ukljuceni), inace runtime daje sivi model bez tekstura.
 - Editor fallback model load put:
-  - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx` (uskladeno s aktivnim model source)
+  - `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
 - Web runtime mode:
   - mobile: puni WebAR flow (kamera, placement, reset, otvori + hotspot)
   - desktop: auto desktop preview bez kamere, s rotacijom i zoom kontrolama; Unity se pokrece neovisno o `wTracker` inicijalizaciji
