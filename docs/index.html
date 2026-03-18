@@ -88,11 +88,6 @@
         }
 
         var initialize = async() =>{
-            if (isDesktopPreview) {
-                startUnityRuntime();
-                return;
-            }
-
             var unityCanvas = document.querySelector("#unity-canvas");
             var videoCanvas = document.querySelector("#video-canvas");
             window.arCamera = new ARCamera(unityCanvas, videoCanvas);
@@ -104,6 +99,11 @@
             catch (error) {
                 console.error("Failed to initialize world tracker. Are you missing opencv.js?", error);
                 ShowError("Failed to initialize the World Tracker.\n" + error);
+                return;
+            }
+
+            if (isDesktopPreview) {
+                startUnityRuntime();
                 return;
             }
 
