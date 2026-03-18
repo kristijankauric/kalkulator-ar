@@ -40,7 +40,6 @@
                 <div id="unity-progress-bar-full"></div>
             </div>
         </div>
-        <canvas id="video-canvas"></canvas>
     </div>
 
 
@@ -100,6 +99,12 @@
             var videoCanvas = document.querySelector("#video-canvas");
             window.arCamera = new ARCamera(unityCanvas, videoCanvas);
             window.wTracker = new WorldTracker(arCamera);
+
+            if (isDesktopPreview) {
+                startUnityRuntime();
+                return;
+            }
+
             try{
                 await wTracker.initialize("./opencv.js");
                 console.log("World tracker initialized!");   
@@ -107,11 +112,6 @@
             catch (error) {
                 console.error("Failed to initialize world tracker. Are you missing opencv.js?", error);
                 ShowError("Failed to initialize the World Tracker.\n" + error);
-                return;
-            }
-
-            if (isDesktopPreview) {
-                startUnityRuntime();
                 return;
             }
 

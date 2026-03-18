@@ -44,9 +44,11 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx`
 - Runtime load put (trenutno):
   - `Assets/Resources/Digitron/DB_801_03.fbx`
+- Editor fallback model load put:
+  - `Assets/Models/DIGITRON stara animacija/DB_801_03.fbx` (uskladeno s aktivnim model source)
 - Web runtime mode:
   - mobile: puni WebAR flow (kamera, placement, reset, otvori + hotspot)
-  - desktop: auto desktop preview bez kamere, s rotacijom i zoom kontrolama
+  - desktop: auto desktop preview bez kamere, s rotacijom i zoom kontrolama; Unity se pokrece neovisno o `wTracker` inicijalizaciji
 - GitHub Pages preview flow (novo):
   - deploy source: `docs/` (kopija lokalnog Unity `Build/`)
   - sync skripta: `tools/sync-pages-build.ps1`

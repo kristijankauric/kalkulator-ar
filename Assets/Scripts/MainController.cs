@@ -16,7 +16,7 @@ public class MainController : MonoBehaviour
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
+    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(180f, 0f, 0f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
@@ -25,7 +25,7 @@ public class MainController : MonoBehaviour
 
     private const string KDigitronResourcePath = "Digitron/DB_801_03";
 #if UNITY_EDITOR
-    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx";
+    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/DB_801_03.fbx";
 #endif
     internal static readonly Dictionary<string, Vector3> HotspotNormalizedAnchors = new Dictionary<string, Vector3>();
     private const string KDigitronRootName = "Digitron Calculator Root";
@@ -381,7 +381,7 @@ public class MainController : MonoBehaviour
         }
 
         sun.intensity = 0.75f;
-        sun.color = new Color(1f, 0.96f, 0.9f, 1f);
+        sun.color = new Color(1f, 0.98f, 0.94f, 1f);
         LogWebRuntime("Configured runtime lighting for non-burned AR preview");
 #endif
     }
