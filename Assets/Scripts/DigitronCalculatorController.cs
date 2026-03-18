@@ -560,6 +560,7 @@ public class DigitronCalculatorController : MonoBehaviour
                 m_OpenAnimationClip = m_LegacyAnimation.GetClip(KOpenClipName);
                 m_OpenStartTime = 0f;
                 m_OpenEndTime = m_OpenAnimationClip.length;
+                Debug.Log($"[Digitron] Open animation source: Legacy Animation clip '{m_OpenAnimationClip.name}'");
                 return;
             }
 
@@ -568,13 +569,44 @@ public class DigitronCalculatorController : MonoBehaviour
                 m_OpenAnimationClip = m_LegacyAnimation.GetClip(KFallbackClipName);
                 m_OpenStartTime = KOpenStartFrame / KTakeFrameRate;
                 m_OpenEndTime = Mathf.Min(KOpenEndFrame / KTakeFrameRate, m_OpenAnimationClip.length);
+                Debug.Log($"[Digitron] Open animation source: Legacy fallback clip '{m_OpenAnimationClip.name}' [{m_OpenStartTime:F2}-{m_OpenEndTime:F2}]");
                 return;
             }
         }
 
         if (m_Animator != null)
         {
-            m_Animator.runtimeAnimatorController = null;
+            var controller = m_Animator.runtimeAnimatorController;
+            if (controller != null)
+            {
+                var clips = controller.animationClips;
+                if (clips != null && clips.Length > 0)
+                {
+                    var openClip = clips.FirstOrDefault(c => c != null && c.name == KOpenClipName);
+                    if (openClip != null)
+                    {
+                        m_OpenAnimationClip = openClip;
+                        m_ClosedPoseClip = openClip;
+                        m_ClosedPoseTime = 0f;
+                        m_OpenStartTime = 0f;
+                        m_OpenEndTime = openClip.length;
+                        Debug.Log($"[Digitron] Open animation source: Animator clip '{openClip.name}'");
+                        return;
+                    }
+
+                    var fallbackClip = clips.FirstOrDefault(c => c != null && c.name == KFallbackClipName);
+                    if (fallbackClip != null)
+                    {
+                        m_OpenAnimationClip = fallbackClip;
+                        m_ClosedPoseClip = fallbackClip;
+                        m_ClosedPoseTime = Mathf.Min(KClosedPoseFrame / KTakeFrameRate, fallbackClip.length);
+                        m_OpenStartTime = KOpenStartFrame / KTakeFrameRate;
+                        m_OpenEndTime = Mathf.Min(KOpenEndFrame / KTakeFrameRate, fallbackClip.length);
+                        Debug.Log($"[Digitron] Open animation source: Animator fallback '{fallbackClip.name}' [{m_OpenStartTime:F2}-{m_OpenEndTime:F2}]");
+                        return;
+                    }
+                }
+            }
         }
 
 #if UNITY_EDITOR
@@ -586,8 +618,12 @@ public class DigitronCalculatorController : MonoBehaviour
             m_ClosedPoseTime = 0f;
             m_OpenStartTime = 0f;
             m_OpenEndTime = standaloneClip.length;
+            Debug.Log($"[Digitron] Open animation source: Editor standalone '{standaloneClip.name}'");
+            return;
         }
 #endif
+
+        Debug.LogWarning("[Digitron] Open animation clip not found, using manual/fallback open.");
     }
 
     private void TryPrepareManualOpenTransform()
