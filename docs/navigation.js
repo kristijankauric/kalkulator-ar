@@ -15,22 +15,18 @@ function showUI() {
     if (resetButton) resetButton._show(false);
     // Force clean unplaced state on first load so placement indicator appears.
     sendToUnity("WorldTracker", "ResetOrigin");
-    sendToUnity("MainController", "OnResetOrigin");
 }
 
 function resetOrigin() {
     if (placeButton) placeButton._show(true);
     if (resetButton) resetButton._show(false);
     sendToUnity("WorldTracker", "ResetOrigin");
-    sendToUnity("MainController", "OnResetOrigin");
 }
 
 function placeOrigin() {
     if (placeButton) placeButton._show(false);
     if (resetButton) resetButton._show(true);
     sendToUnity("WorldTracker", "PlaceOrigin");
-    // Fallback: ensure calculator spawn even if tracker event binding was lost.
-    sendToUnity("MainController", "OnPlacedOrigin");
 }
 
 HTMLElement.prototype._show = function (toShow) {
