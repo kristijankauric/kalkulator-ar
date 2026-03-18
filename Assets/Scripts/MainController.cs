@@ -168,9 +168,12 @@ public class MainController : MonoBehaviour
         }
 
         var digitronPrefab = LoadDigitronPrefab();
-        GameObject modelInstance = null;
+        GameObject modelInstance = TryUseExistingScenePreview();
 #if UNITY_EDITOR
-        modelInstance = TryUseExistingEditorPreview(digitronPrefab);
+        if (!modelInstance)
+        {
+            modelInstance = TryUseExistingEditorPreview(digitronPrefab);
+        }
 #endif
         if (!modelInstance && !digitronPrefab)
         {
@@ -346,6 +349,24 @@ public class MainController : MonoBehaviour
 #endif
     }
 
+    private static GameObject TryUseExistingScenePreview()
+    {
+        var existingPreview = FindSceneGameObject(KLegacyEditorPreviewName);
+        if (!existingPreview)
+        {
+            return null;
+        }
+
+        var renderers = existingPreview.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+        {
+            return null;
+        }
+
+        existingPreview.SetActive(true);
+        return existingPreview;
+    }
+
     private void ConfigureWebRuntimeCamera()
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -516,6 +537,7 @@ public class MainController : MonoBehaviour
         {
             if (child == null) continue;
             if (child.name == "Hotspots") continue;
+            if (child.name == KLegacyEditorPreviewName) continue;
             toRemove.Add(child.gameObject);
         }
 
