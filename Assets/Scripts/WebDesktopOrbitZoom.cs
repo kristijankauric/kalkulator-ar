@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class WebDesktopOrbitZoom : MonoBehaviour
 {
-    [SerializeField] private float m_RotateSpeed = 0.04f;
+    [SerializeField] private float m_RotateSpeed = 0.02f;
     [SerializeField] private float m_ZoomSpeed = 0.25f;
     [SerializeField] private float m_MinScale = 0.65f;
     [SerializeField] private float m_MaxScale = 2.4f;

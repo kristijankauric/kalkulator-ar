@@ -49,7 +49,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KOpenEndFrame = 150f;
     private const float KFallbackOpenDuration = 1.1f;
     private const float KManualOpenAngle = -110f;
-    private const float KPhysicalKeyPressDepth = 0.004f;
+    private const float KPhysicalKeyPressDepth = 0.010f;
     private const float KPhysicalKeyPressDuration = 0.08f;
     private const float KOpenButtonWidth = 160f;
     private const float KOpenButtonHeight = 50f;
@@ -72,12 +72,12 @@ public class DigitronCalculatorController : MonoBehaviour
     private static readonly HotspotData[] Hotspots =
     {
         // MarkerLocalDir: offset direction in model-local space from anchor mesh centre → label quad position
-        new HotspotData { Id = "housing",   Number = 1, Title = "Kući\u0161te",              Description = "Ku\u0107i\u0161te \u0161titi osjetljivu elektroniku i dr\u017ei sve dijelove na mjestu.",  NormalizedViewportAnchor = new Vector3(0.5f,  0.55f,  0.1f),  MarkerLocalDir = new Vector3( 2.6f,  0.35f,  0.10f) },
-        new HotspotData { Id = "keyboard",  Number = 2, Title = "Tipkovnica",                Description = "Tipkovnica slu\u017ei za unos brojeva i matemati\u010dkih operacija.",                     NormalizedViewportAnchor = new Vector3(0.5f,  0.3f,  0.23f), MarkerLocalDir = new Vector3(-2.2f, -0.20f,  0.30f) },
-        new HotspotData { Id = "board",     Number = 3, Title = "Elektroni\u010dka\nplo\u010da", Description = "Elektroni\u010dka plo\u010da povezuje sve dijelove kalkulatora.",                     NormalizedViewportAnchor = new Vector3(0.52f, 0.46f, -0.08f), MarkerLocalDir = new Vector3( 2.2f,  0.35f, -0.20f) },
-        new HotspotData { Id = "chips",     Number = 4, Title = "Integrirani\nkrugovi",       Description = "\u010cipovi predstavljaju mozak kalkulatora.",                                           NormalizedViewportAnchor = new Vector3(0.67f, 0.46f, -0.02f), MarkerLocalDir = new Vector3(-2.4f,  0.15f, -0.20f) },
-        new HotspotData { Id = "batteries", Number = 5, Title = "Baterije",                   Description = "Baterije napajaju kalkulator elektri\u010dnom energijom.",                              NormalizedViewportAnchor = new Vector3(0.78f, 0.3f, -0.15f), MarkerLocalDir = new Vector3(-2.3f, -0.65f,  0.20f) },
-        new HotspotData { Id = "display",   Number = 6, Title = "Zaslon",                     Description = "Crveni LED zaslon prikazuje rezultate ra\u010dunanja.",                                 NormalizedViewportAnchor = new Vector3(0.5f,  0.77f,  0.02f), MarkerLocalDir = new Vector3( 0.3f,  1.2f,  0.3f) },
+        new HotspotData { Id = "housing",   Number = 1, Title = "Ku\u0107i\u0161te",              Description = "Ku\u0107i\u0161te je \u201eoklop\u201c kalkulatora: dr\u017ei sve dijelove na mjestu i \u0161titi osjetljivu elektroniku od udaraca, pra\u0161ine i slu\u010dajnih dodira. Kod db801 ku\u0107i\u0161te ima jo\u0161 jednu zanimljivu ulogu \u2013 slu\u017eilo je i kao prostor za kratke upute korisniku. Na pole\u0111ini se, primjerice, upozorava da kalkulator najbolje radi u temperaturnom rasponu 0\u201340\u00a0\u00b0C te da ga se na hladno\u0107i mo\u017ee zagrijati tjelesnom toplinom. To je mali podsjetnik koliko je ova tehnologija tada bila nova i \u201efina\u201c, i koliko se pazilo da radi pouzdano.",  NormalizedViewportAnchor = new Vector3(0.5f,  0.55f,  0.1f),  MarkerLocalDir = new Vector3( 2.6f,  0.35f,  0.10f) },
+        new HotspotData { Id = "keyboard",  Number = 2, Title = "Tipkovnica",                Description = "Tipkovnica je mjesto gdje kalkulator \u201e\u010duje\u201c korisnika. Svaka tipka \u0161alje jasnu naredbu: broj, ra\u010dunsku operaciju ili brisanje unosa. Kod starijih ure\u0111aja poput db801 tipke su mehani\u010dke, pa je bilo va\u017eno da elektronika pouzdano prepoznaje svaki pritisak \u2013 bez slu\u010dajnog duplog klika. Specijalizirani \u010dip unutar kalkulatora ima ugra\u0111ene funkcije koje poma\u017eu ba\u0161 u tome: stabilno o\u010ditavanje tipki i pretvaranje pritiska u naredbu. Rezultat je jednostavno iskustvo kori\u0161tenja, iako je unutra tehnologija za svoje vrijeme bila vrlo napredna.",                     NormalizedViewportAnchor = new Vector3(0.5f,  0.3f,  0.23f), MarkerLocalDir = new Vector3(-2.2f, -0.20f,  0.30f) },
+        new HotspotData { Id = "board",     Number = 3, Title = "Elektroni\u010dka\nplo\u010da", Description = "Elektroni\u010dka plo\u010da je \u201eprometna mre\u017ea\u201c kalkulatora. Po njoj idu tanke vodljive staze koje spajaju tipkovnicu, \u010dipove, zaslon i napajanje u jednu cjelinu. Na plo\u010di se nalaze i sitni dijelovi koji poma\u017eu da sve radi stabilno: povezivanje, filtriranje i raspodjela signala. U praksi, plo\u010da je ono \u0161to omogu\u0107uje da pritisak tipke postane broj na zaslonu \u2013 brzo, tiho i bez mehani\u010dkih pokretnih dijelova osim samih tipki. Kad gledate plo\u010du izbliza, vidite otisak in\u017eenjerskog rada: sve je moralo biti to\u010dno poslo\u017eeno da bi kalkulator bio pouzdan i prenosiv.",                     NormalizedViewportAnchor = new Vector3(0.52f, 0.46f, -0.08f), MarkerLocalDir = new Vector3( 2.2f,  0.35f, -0.20f) },
+        new HotspotData { Id = "chips",     Number = 4, Title = "Integrirani\nkrugovi",       Description = "Integrirani krugovi (\u010dipovi) su mozak i logistika kalkulatora u jednom. Umjesto puno zasebnih dijelova, klju\u010dne funkcije ra\u010dunanja spakirane su u mali crni paki\u0107 s puno no\u017eica. U db801 koristi se specijalizirani kalkulatorski \u010dip koji zna osnovne operacije (+, \u2212, \u00d7, \u00f7), ali i prakti\u010dne opcije poput rada s konstantom, izbora decimalnih mjesta te funkcija poput postotka i korijena. Taj \u010dip ne samo da ra\u010duna, nego i poma\u017ee upravljati tipkama i segmentima zaslona. Za rane 1970-e to je zna\u010dilo isto \u0161to danas zna\u010di pametni ure\u0111aj: puno mogu\u0107nosti u malom d\u017eepnom formatu.",                                           NormalizedViewportAnchor = new Vector3(0.67f, 0.46f, -0.02f), MarkerLocalDir = new Vector3(-2.4f,  0.15f, -0.20f) },
+        new HotspotData { Id = "batteries", Number = 5, Title = "Baterije",                   Description = "Ovdje je izvor energije \u2013 akumulatori (punjive baterije). Bez njih db801 ne bi mogao biti prijenosiv, a upravo je prenosivost bila dio \u010darolije prvih d\u017eepnih kalkulatora. Na samom ure\u0111aju stoji i prakti\u010dna poruka: nakon pra\u017enjenja akumulatore ne treba bacati, jer se mogu ponovno napuniti. To je detalj koji lijepo pokazuje duh vremena: tehnologija je bila skupa i vrijedna, pa se pazilo na sve \u2013 od elektronike do napajanja. Danas nam je punjenje normalno, ali tada je to bila velika prednost u odnosu na ure\u0111aje koji su brzo tro\u0161ili baterije.",              NormalizedViewportAnchor = new Vector3(0.78f, 0.3f, -0.15f), MarkerLocalDir = new Vector3(-2.3f, -0.65f,  0.20f) },
+        new HotspotData { Id = "display",   Number = 6, Title = "Zaslon",                     Description = "Zaslon je pozornica kalkulatora: tu se vidi svaki unos i svaki rezultat. db801 koristi LED segmentni prikaz \u2013 znamenke se crtaju svjetle\u0107im segmentima, a preko svega ide crveni prozor koji pobolj\u0161ava kontrast i \u010dini brojke \u010ditljivijima. Danas je to retro-\u0161arm, ali u ranim 1970-ima bio je to znak moderne elektronike: brojke su svijetlile jasno, bez papira i bez pisa\u010da. Upravo zato je zaslon jedan od najprepoznatljivijih dijelova Digitronovih ranih modela \u2013 \u010dim se upali, odmah je jasno da gledate koma\u010di\u0107 povijesti d\u017eepnog ra\u010dunanja.",                                 NormalizedViewportAnchor = new Vector3(0.5f,  0.77f,  0.02f), MarkerLocalDir = new Vector3( 0.3f,  1.2f,  0.3f) },
     };
 
     private static readonly DisplayLayoutData DisplayLayout = new DisplayLayoutData
@@ -168,6 +168,9 @@ public class DigitronCalculatorController : MonoBehaviour
     private List<Renderer> m_RelevantRenderers = new List<Renderer>();
     private bool m_UsePhysicalKeyTargets;
     private string m_SelectedHotspotId;
+    [SerializeField] private Texture2D m_TexDigitronNaslov;
+    [SerializeField] private Texture2D m_TexSoloTrakica;
+    [SerializeField] private Texture2D m_TexPapirPodloga;
     private GUIStyle m_OpenButtonStyle;
     private GUIStyle m_InfoBoxStyle;
     private GUIStyle m_InfoTitleStyle;
@@ -350,17 +353,29 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void OnGUI()
     {
+        DrawTitle();
         if (!m_ModelInstance || m_State == DigitronState.Unplaced) return;
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
         EnsureGuiStyles();
         // Responsive font sizes — recalculated every frame based on screen height
         var fs = Screen.height;
         m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 12, 24);
-        m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.022f), 11, 18);
-        m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.016f),  9, 14);
+        m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 28);
+        m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.020f), 11, 20);
         m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
         if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
+    }
+
+    private void DrawTitle()
+    {
+        m_TexDigitronNaslov ??= Resources.Load<Texture2D>("digitron naslov");
+        if (m_TexDigitronNaslov == null) return;
+        var titleH = Screen.height * 0.082f;
+        var aspect = (float)m_TexDigitronNaslov.width / Mathf.Max(1, m_TexDigitronNaslov.height);
+        var titleW = titleH * aspect;
+        var rect = new Rect((Screen.width - titleW) * 0.5f, Screen.height * 0.012f, titleW, titleH);
+        GUI.DrawTexture(rect, m_TexDigitronNaslov, ScaleMode.ScaleToFit, true);
     }
 
     private void DrawToggleButton()
@@ -383,7 +398,7 @@ public class DigitronCalculatorController : MonoBehaviour
         // All dimensions as screen-percentage so portrait/landscape/tablet all work
         var pad       = Screen.height * 0.018f;
         var closeSize = Screen.height * 0.05f;
-        var lineH     = Screen.height * 0.044f;
+        var lineH     = Screen.height * 0.058f;
         var titleLineCount = hotspot.Title.Split('\n').Length;
         var titleH    = lineH * titleLineCount;
         var panelW    = Screen.width  * 0.88f;
@@ -1140,12 +1155,10 @@ public class DigitronCalculatorController : MonoBehaviour
 
         if (m_DisplayFont == null)
         {
+            m_DisplayFont = Resources.Load<Font>("digital-7 (mono)");
 #if UNITY_EDITOR
-            var font = AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
-            if (font != null)
-            {
-                m_DisplayFont = font;
-            }
+            if (m_DisplayFont == null)
+                m_DisplayFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
 #endif
         }
 
@@ -1156,7 +1169,7 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             m_DisplayText.characterSize = 0.0052f;
         }
-        m_DisplayText.color = new Color(1f, 0.9f, 0.82f, 1f);
+        m_DisplayText.color = new Color(1f, 0.08f, 0.02f, 1f);
 
         if (m_DisplayFont != null)
         {
@@ -1173,9 +1186,8 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_DisplayText == null) return;
         var r = m_DisplayText.GetComponent<MeshRenderer>();
         if (r == null) return;
-        // Use Unlit/Transparent (ZTest LEqual) so housing occludes display text correctly.
-        // GUI/Text Shader uses ZTest Always which renders text through opaque geometry.
-        var shader = Shader.Find("Unlit/Transparent");
+        // GUI/Text Shader correctly renders TextMesh vertex colors (white glyph on transparent).
+        var shader = Shader.Find("GUI/Text Shader");
         if (shader == null) return;
         var tex = r.sharedMaterial != null ? r.sharedMaterial.mainTexture : null;
         var mat = new Material(shader);
@@ -1330,8 +1342,13 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_DisplayText == null || !m_TargetCamera) return;
         var renderer = m_DisplayText.GetComponent<MeshRenderer>();
         if (renderer == null) return;
-        // During animation and in opened state, always show if powered on
-        if (m_State != DigitronState.PlacedClosed || m_DisplayAnchor == null)
+        // Display only shown when calculator is closed — hide during opening/opened states
+        if (m_State != DigitronState.PlacedClosed)
+        {
+            renderer.enabled = false;
+            return;
+        }
+        if (m_DisplayAnchor == null)
         {
             renderer.enabled = m_Runtime.IsPoweredOn;
             return;
@@ -1740,7 +1757,7 @@ public class DigitronCalculatorController : MonoBehaviour
             renderer.receiveShadows = false;
             renderer.material = CreateHotspotMaterial();
             var marker = markerObject.AddComponent<DigitronHotspotMarker>();
-            try { marker.Initialize(this, hotspot.Id, hotspot.Title); }
+            try { marker.Initialize(this, hotspot.Id, hotspot.Title, m_TexSoloTrakica); }
             catch (System.Exception e) { Debug.LogWarning($"[Hotspot] marker init failed for {hotspot.Id}: {e.Message}"); }
             if (anchor != null) marker.InitLine(anchor);
             m_HotspotMarkers.Add(hotspot.Id, marker);
@@ -1857,47 +1874,60 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (m_OpenButtonStyle != null) return;
 
-        var panelTex    = MakeTex(new Color(0.06f, 0.06f, 0.10f, 0.93f));
-        var btnTex      = MakeTex(new Color(0.14f, 0.14f, 0.20f, 0.96f));
-        var btnActiveTex = MakeTex(new Color(0.22f, 0.22f, 0.32f, 0.96f));
+        // Try loading from Resources if not assigned via Inspector
+        m_TexSoloTrakica   ??= Resources.Load<Texture2D>("solo trakica");
+        m_TexPapirPodloga  ??= Resources.Load<Texture2D>("papir podloga kvadrati");
+        m_TexDigitronNaslov ??= Resources.Load<Texture2D>("digitron naslov");
+
+        // Textures: use assigned assets, fall back to solid colours
+        var btnBg    = m_TexSoloTrakica  ?? MakeTex(new Color(0.14f, 0.14f, 0.20f, 0.96f));
+        var panelBg  = m_TexPapirPodloga ?? MakeTex(new Color(0.06f, 0.06f, 0.10f, 0.93f));
+        var lightBg  = m_TexSoloTrakica  != null;  // true when using light paper texture
+        var lightPanel = m_TexPapirPodloga != null;
+
+        var btnTextColor  = lightBg    ? new Color(0.12f, 0.06f, 0.02f) : Color.white;
+        var titleColor    = lightPanel ? new Color(0.12f, 0.06f, 0.02f) : Color.white;
+        var descColor     = lightPanel ? new Color(0.22f, 0.10f, 0.04f) : new Color(0.80f, 0.80f, 0.80f);
+        var closeColor    = lightPanel ? new Color(0.30f, 0.15f, 0.05f) : new Color(0.65f, 0.65f, 0.65f);
 
         m_OpenButtonStyle = new GUIStyle(GUI.skin.button);
         m_OpenButtonStyle.fontSize    = 16;
         m_OpenButtonStyle.fontStyle   = FontStyle.Bold;
         m_OpenButtonStyle.alignment   = TextAnchor.MiddleCenter;
-        m_OpenButtonStyle.normal.background  = btnTex;
-        m_OpenButtonStyle.normal.textColor   = Color.white;
-        m_OpenButtonStyle.hover.background   = btnActiveTex;
-        m_OpenButtonStyle.hover.textColor    = Color.white;
-        m_OpenButtonStyle.active.background  = btnActiveTex;
-        m_OpenButtonStyle.active.textColor   = Color.white;
+        m_OpenButtonStyle.normal.background  = btnBg;
+        m_OpenButtonStyle.normal.textColor   = btnTextColor;
+        m_OpenButtonStyle.hover.background   = btnBg;
+        m_OpenButtonStyle.hover.textColor    = btnTextColor;
+        m_OpenButtonStyle.active.background  = btnBg;
+        m_OpenButtonStyle.active.textColor   = btnTextColor;
+        m_OpenButtonStyle.border = new RectOffset(4, 4, 4, 4);
 
         m_InfoBoxStyle = new GUIStyle(GUI.skin.box);
         m_InfoBoxStyle.padding = new RectOffset(0, 0, 0, 0);
-        m_InfoBoxStyle.border  = new RectOffset(0, 0, 0, 0);
-        m_InfoBoxStyle.normal.background = panelTex;
+        m_InfoBoxStyle.border  = new RectOffset(4, 4, 4, 4);
+        m_InfoBoxStyle.normal.background = panelBg;
 
         m_InfoTitleStyle = new GUIStyle(GUI.skin.label);
         m_InfoTitleStyle.fontSize   = 15;
         m_InfoTitleStyle.fontStyle  = FontStyle.Bold;
         m_InfoTitleStyle.wordWrap   = false;
-        m_InfoTitleStyle.normal.textColor = Color.white;
+        m_InfoTitleStyle.normal.textColor = titleColor;
 
         m_InfoDescStyle = new GUIStyle(GUI.skin.label);
         m_InfoDescStyle.fontSize  = 12;
         m_InfoDescStyle.wordWrap  = true;
-        m_InfoDescStyle.normal.textColor = new Color(0.80f, 0.80f, 0.80f);
+        m_InfoDescStyle.normal.textColor = descColor;
 
         m_CloseButtonStyle = new GUIStyle(GUI.skin.button);
         m_CloseButtonStyle.fontSize   = 20;
         m_CloseButtonStyle.fontStyle  = FontStyle.Bold;
         m_CloseButtonStyle.alignment  = TextAnchor.MiddleCenter;
-        m_CloseButtonStyle.normal.textColor = new Color(0.65f, 0.65f, 0.65f);
-        m_CloseButtonStyle.hover.textColor  = Color.white;
+        m_CloseButtonStyle.normal.textColor  = closeColor;
+        m_CloseButtonStyle.hover.textColor   = lightPanel ? new Color(0.7f, 0.1f, 0f) : Color.white;
+        m_CloseButtonStyle.active.textColor  = lightPanel ? new Color(0.7f, 0.1f, 0f) : Color.white;
         m_CloseButtonStyle.normal.background  = MakeTex(new Color(0f, 0f, 0f, 0f));
-        m_CloseButtonStyle.hover.background   = MakeTex(new Color(1f, 1f, 1f, 0.08f));
-        m_CloseButtonStyle.active.background  = MakeTex(new Color(1f, 1f, 1f, 0.08f));
-        m_CloseButtonStyle.active.textColor   = Color.white;
+        m_CloseButtonStyle.hover.background   = MakeTex(new Color(0f, 0f, 0f, 0.06f));
+        m_CloseButtonStyle.active.background  = MakeTex(new Color(0f, 0f, 0f, 0.06f));
         m_CloseButtonStyle.border = new RectOffset(0, 0, 0, 0);
 
         m_KeyButtonStyle = new GUIStyle(GUI.skin.button);
@@ -1909,10 +1939,12 @@ public class DigitronCalculatorController : MonoBehaviour
         m_DisplayStyle.alignment = TextAnchor.MiddleRight;
         m_DisplayStyle.fontSize  = 24;
         m_DisplayStyle.fontStyle = FontStyle.Bold;
-        m_DisplayStyle.normal.textColor = new Color(1f, 0.88f, 0.80f, 1f);
+        m_DisplayStyle.normal.textColor = new Color(1f, 0.08f, 0.02f, 1f);
+        var displayFont = Resources.Load<Font>("digital-7 (mono)");
 #if UNITY_EDITOR
-        var font = AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
-        if (font != null) m_DisplayStyle.font = font;
+        if (displayFont == null)
+            displayFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
 #endif
+        if (displayFont != null) m_DisplayStyle.font = displayFont;
     }
 }

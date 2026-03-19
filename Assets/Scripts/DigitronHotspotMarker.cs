@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class DigitronHotspotMarker : MonoBehaviour
@@ -11,17 +10,19 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Transform m_BackgroundTransform;
     private Renderer m_BackgroundRenderer;
     private TextMesh m_LabelTextMesh;
+    private Texture2D m_BackgroundTexture;
 
     private static readonly Color KNormalColor   = Color.white;
     private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
     private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 1f);
     private static Texture2D s_WhiteTexture;
 
-    public void Initialize(DigitronCalculatorController controller, string hotspotId, string label)
+    public void Initialize(DigitronCalculatorController controller, string hotspotId, string label, Texture2D backgroundTexture = null)
     {
-        m_Controller = controller;
-        m_HotspotId  = hotspotId;
-        m_Renderer   = GetComponent<Renderer>();
+        m_Controller       = controller;
+        m_HotspotId        = hotspotId;
+        m_BackgroundTexture = backgroundTexture;
+        m_Renderer          = GetComponent<Renderer>();
         BuildLabel(label);
         SetSelected(false);
     }
@@ -60,11 +61,11 @@ public class DigitronHotspotMarker : MonoBehaviour
             m_Line.material.color = selected
                 ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
                 : new Color(1f, 1f, 1f, 0.85f);      // white
-        // Background turns orange when selected
+        // Background: orange tint when selected, white (shows texture) when normal
         if (m_BackgroundRenderer != null && m_BackgroundRenderer.material != null)
             m_BackgroundRenderer.material.color = selected
                 ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
-                : KLabelBackgroundColor;
+                : Color.white;
     }
 
     private void BuildLabel(string label)
@@ -98,10 +99,10 @@ public class DigitronHotspotMarker : MonoBehaviour
         // +Z offset puts background FURTHER from camera so it renders before text in the
         // transparent back-to-front queue, appearing correctly behind the text.
         var cs = tm.characterSize;
-        var bgWidth  = Mathf.Max(longestLine * cs * 1.25f + cs * 2.0f, cs * 5.0f);
+        var bgWidth  = Mathf.Max(longestLine * cs * 4.0f + cs * 8.0f, cs * 16.0f);
         var bgHeight = lineCount > 1
-            ? Mathf.Max(lineCount * cs * 1.7f + cs * 1.0f, cs * 4.0f)
-            : Mathf.Max(cs * 2.6f, cs * 3.0f);
+            ? Mathf.Max(lineCount * cs * 4.5f + cs * 4.0f, cs * 10.0f)
+            : Mathf.Max(cs * 7.0f, cs * 8.0f);
 
         var background = GameObject.CreatePrimitive(PrimitiveType.Quad);
         background.name = "LabelBackground";
@@ -118,7 +119,9 @@ public class DigitronHotspotMarker : MonoBehaviour
         {
             bgRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bgRenderer.receiveShadows = false;
-            var mat = CreateOverlayColorMaterial(KLabelBackgroundColor);
+            var mat = m_BackgroundTexture != null
+                ? CreateOverlayTextureMaterial(m_BackgroundTexture)
+                : CreateOverlayColorMaterial(KLabelBackgroundColor);
             if (mat != null) bgRenderer.material = mat;
             bgRenderer.sortingOrder = 4999;
             m_BackgroundRenderer = bgRenderer;
@@ -157,6 +160,21 @@ public class DigitronHotspotMarker : MonoBehaviour
         return mat;
     }
 
+    private static Material CreateOverlayTextureMaterial(Texture2D texture)
+    {
+        var shader = Shader.Find("GUI/Text Shader")
+            ?? Shader.Find("Sprites/Default")
+            ?? Shader.Find("Universal Render Pipeline/Unlit")
+            ?? Shader.Find("Unlit/Color");
+        if (shader == null) return null;
+        var mat = new Material(shader);
+        mat.SetColor("_Color", Color.white);
+        mat.SetColor("_BaseColor", Color.white);
+        mat.SetTexture("_MainTex", texture);
+        mat.renderQueue = 5000;
+        return mat;
+    }
+
     private static Material CreateOverlayTextMaterial(Material source, Color color)
     {
         var shader = Shader.Find("GUI/Text Shader");
@@ -167,27 +185,6 @@ public class DigitronHotspotMarker : MonoBehaviour
         material.SetTexture("_MainTex", mainTex != null ? mainTex : GetWhiteTexture());
         material.renderQueue = 5000;
         return material;
-    }
-
-    private IEnumerator Start()
-    {
-        for (var attempt = 0; attempt < 5; attempt++)
-        {
-            yield return null;
-            if (FitBackgroundToText()) yield break;
-        }
-    }
-
-    private bool FitBackgroundToText()
-    {
-        if (m_LabelTextMesh == null || m_BackgroundTransform == null) return true;
-        var mf = m_LabelTextMesh.GetComponent<MeshFilter>();
-        if (mf == null || mf.sharedMesh == null) return false;
-        var b = mf.sharedMesh.bounds;
-        if (b.size.x < 0.001f) return false;
-        var pad = m_LabelTextMesh.characterSize * 0.5f;
-        m_BackgroundTransform.localScale = new Vector3(b.size.x + pad * 2f, b.size.y + pad, 1f);
-        return true;
     }
 
     public void OnClick()

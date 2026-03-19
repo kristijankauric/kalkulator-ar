@@ -3,7 +3,10 @@ guid: 0169bed7d3704fc58236d68e31053192
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - m_TexDigitronNaslov: {fileID: 2800000, guid: 9f06ea0040e2b67409dfe1e4821bcfe3, type: 3}
+  - m_TexSoloTrakica: {fileID: 2800000, guid: 6d67b34b0019ea14194701e0bf370bac, type: 3}
+  - m_TexPapirPodloga: {fileID: 2800000, guid: ad9e45532e093f44ab66feb643aa7a74, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
