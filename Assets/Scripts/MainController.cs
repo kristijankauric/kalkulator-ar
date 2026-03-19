@@ -14,16 +14,18 @@ public class MainController : MonoBehaviour
     [SerializeField] private AnimationClip m_DigitronOpenAnimationClip;
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
-    private float m_WebTargetScaleMultiplier = 4.0f;
+    private float m_WebTargetScaleMultiplier = 3.0f;
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
+    private Vector3 m_WebDesktopSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
+    private Vector3 m_WebMobileSpawnLocalEulerAngles  = new Vector3(180f, 180f, 0f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
     private float m_EditorPreviewScaleMultiplier = 1.3f;
     private bool m_WebDesktopPreviewInitialized;
+    private bool m_MobileReady;
 
     private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
     private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
@@ -89,6 +91,11 @@ public class MainController : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         LogWebRuntime("OnPlacedOrigin received");
+        if (!IsWebDesktopPreview() && !m_MobileReady)
+        {
+            LogWebRuntime("OnPlacedOrigin suppressed — initial reset not yet done");
+            return;
+        }
 #endif
 
         if (m_EnableDigitronMode)
@@ -256,7 +263,7 @@ public class MainController : MonoBehaviour
         }
 #endif
 #if UNITY_WEBGL && !UNITY_EDITOR
-        return Quaternion.Euler(m_WebSpawnLocalEulerAngles);
+        return Quaternion.Euler(IsWebDesktopPreview() ? m_WebDesktopSpawnLocalEulerAngles : m_WebMobileSpawnLocalEulerAngles);
 #else
         return Quaternion.identity;
 #endif
@@ -397,7 +404,7 @@ public class MainController : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
     private bool IsWebDesktopPreview()
     {
-        return !Application.isMobilePlatform;
+        return LibraryManager.JSIsDesktopPreview() != 0;
     }
 
     private void PrepareWebDesktopPreview()
@@ -454,7 +461,7 @@ public class MainController : MonoBehaviour
     private IEnumerator ForceInitialMobileResetRoutine()
     {
         yield return null;
-        yield return new WaitForSeconds(0.2f);
+        yield return new WaitForSeconds(0.3f);
 
         var tracker = FindObjectOfType<WorldTracker>();
         if (!tracker)
@@ -463,7 +470,8 @@ public class MainController : MonoBehaviour
         }
 
         tracker.ResetOrigin();
-        LogWebRuntime("Forced initial ResetOrigin to show placement indicator on first run");
+        m_MobileReady = true;
+        LogWebRuntime("Forced initial ResetOrigin done — mobile ready for placement");
     }
 
     private void FrameWebDesktopCamera()
@@ -592,7 +600,18 @@ public class MainController : MonoBehaviour
 
         if (preferredPrefab)
         {
-            var previewSource = PrefabUtility.GetCorrespondingObjectFromSource(existingPreview);
+            GameObject previewSource = null;
+            try
+            {
+                previewSource = PrefabUtility.GetCorrespondingObjectFromSource(existingPreview) as GameObject;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[MainController] GetCorrespondingObjectFromSource threw: {ex.Message} — treating preview as missing");
+                existingPreview.SetActive(false);
+                return null;
+            }
+
             if (previewSource == preferredPrefab)
             {
                 return existingPreview;

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class DigitronHotspotMarker : MonoBehaviour
@@ -7,6 +8,8 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Renderer m_Renderer;
     private LineRenderer m_Line;
     private Transform m_AnchorTarget;
+    private Transform m_BackgroundTransform;
+    private TextMesh m_LabelTextMesh;
 
     private static readonly Color KNormalColor   = Color.white;
     private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
@@ -67,6 +70,7 @@ public class DigitronHotspotMarker : MonoBehaviour
 
         var tm = go.AddComponent<TextMesh>();
         if (tm == null) return;
+        m_LabelTextMesh = tm;
         tm.text      = label;
         tm.anchor    = TextAnchor.MiddleCenter;
         tm.alignment = TextAlignment.Center;
@@ -99,6 +103,7 @@ public class DigitronHotspotMarker : MonoBehaviour
         background.transform.localPosition = new Vector3(0f, 0f, 0.01f);
         background.transform.localRotation = Quaternion.identity;
         background.transform.localScale = new Vector3(bgWidth, bgHeight, 1f);
+        m_BackgroundTransform = background.transform;
         var bgCollider = background.GetComponent<Collider>();
         if (bgCollider != null) Destroy(bgCollider);
         var bgRenderer = background.GetComponent<Renderer>();
@@ -154,6 +159,27 @@ public class DigitronHotspotMarker : MonoBehaviour
         material.SetTexture("_MainTex", mainTex != null ? mainTex : GetWhiteTexture());
         material.renderQueue = 5000;
         return material;
+    }
+
+    private IEnumerator Start()
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            yield return null;
+            if (FitBackgroundToText()) yield break;
+        }
+    }
+
+    private bool FitBackgroundToText()
+    {
+        if (m_LabelTextMesh == null || m_BackgroundTransform == null) return true;
+        var mf = m_LabelTextMesh.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return false;
+        var b = mf.sharedMesh.bounds;
+        if (b.size.x < 0.001f) return false;
+        var pad = m_LabelTextMesh.characterSize * 0.5f;
+        m_BackgroundTransform.localScale = new Vector3(b.size.x + pad * 2f, b.size.y + pad, 1f);
+        return true;
     }
 
     private void OnMouseDown()

@@ -10,4 +10,8 @@ mergeInto(LibraryManager.library, {
     JSResetOrigin: function() {
         resetOrigin();
     },
+
+    JSIsDesktopPreview: function() {
+        return window.__DIGITRON_DESKTOP_PREVIEW ? 1 : 0;
+    },
 });

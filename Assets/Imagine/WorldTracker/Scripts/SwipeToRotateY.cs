@@ -12,8 +12,8 @@ namespace Imagine.WebAR
 
         private Vector2 startDragPos;
         private bool isDragging = false;
-
-
+        private float m_TouchStartTime;
+        private const float KHoldThreshold = 0.25f;
 
         private Quaternion origRot, startRot;
 
@@ -37,6 +37,7 @@ namespace Imagine.WebAR
                 startDragPos = Input.mousePosition;
                 startRot = rotTransform.rotation;
                 isDragging = true;
+                m_TouchStartTime = Time.time;
             }
 
             else if (Input.GetMouseButtonUp(0))
@@ -46,6 +47,8 @@ namespace Imagine.WebAR
 
             if (isDragging)
             {
+                if (Time.time - m_TouchStartTime < KHoldThreshold) return;
+
                 var curDragPos = Input.mousePosition;
 
                 var x = curDragPos.x - startDragPos.x;

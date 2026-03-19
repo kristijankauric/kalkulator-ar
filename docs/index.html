@@ -47,8 +47,24 @@
     <script src="wtracker.js" type="text/javascript"></script>
     <script src="Build/docs.loader.js"></script>
     <script>
-        const isDesktopPreview = !(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
+        const _modeOverride = new URLSearchParams(window.location.search).get('mode');
+        const isDesktopPreview = _modeOverride === 'desktop' ? true
+            : _modeOverride === 'mobile' ? false
+            : !(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
         window.__DIGITRON_DESKTOP_PREVIEW = isDesktopPreview;
+        // Mode toggle button (for testing)
+        (function() {
+            const btn = document.createElement('button');
+            btn.id = 'debug-mode-btn';
+            btn.textContent = isDesktopPreview ? 'Mode: Desktop' : 'Mode: Mobile';
+            btn.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:9999;padding:6px 10px;font-size:11px;opacity:0.75;background:#222;color:#fff;border:none;border-radius:4px;cursor:pointer;';
+            btn.onclick = function() {
+                const p = new URLSearchParams(window.location.search);
+                p.set('mode', isDesktopPreview ? 'mobile' : 'desktop');
+                window.location.search = p.toString();
+            };
+            document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(btn); });
+        })();
         let hasStartedUnity = false;
 
         function startUnityRuntime() {

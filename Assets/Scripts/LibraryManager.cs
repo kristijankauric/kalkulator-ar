@@ -11,4 +11,7 @@ public class LibraryManager : MonoBehaviour
     public static extern void JSPlaceOrigin();
     [DllImport("__Internal")]
     public static extern void JSResetOrigin();
+
+    [DllImport("__Internal")]
+    public static extern int JSIsDesktopPreview();
 }
