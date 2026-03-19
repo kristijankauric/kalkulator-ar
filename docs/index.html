@@ -45,7 +45,7 @@
 
     <script src="arcamera.js" type="text/javascript"></script>
     <script src="wtracker.js" type="text/javascript"></script>
-    <script src="Build/Build.loader.js"></script>
+    <script src="Build/docs.loader.js"></script>
     <script>
         const isDesktopPreview = !(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent));
         window.__DIGITRON_DESKTOP_PREVIEW = isDesktopPreview;
@@ -65,9 +65,9 @@
             runtimeLoadingBar.style.display = "block";
 
             createUnityInstance(runtimeCanvas, {
-                    dataUrl: "Build/Build.data.br",
-                    frameworkUrl: "Build/Build.framework.js.br",
-                    codeUrl: "Build/Build.wasm.br",
+                    dataUrl: "Build/docs.data.br",
+                    frameworkUrl: "Build/docs.framework.js.br",
+                    codeUrl: "Build/docs.wasm.br",
                     streamingAssetsUrl: "StreamingAssets",
                     companyName: "Brojka Kreativnih Produkcija",
                     productName: "Jankec - Mihanović - Tuheljske Toplice",
