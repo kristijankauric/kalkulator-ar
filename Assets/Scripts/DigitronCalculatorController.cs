@@ -1165,6 +1165,24 @@ public class DigitronCalculatorController : MonoBehaviour
         }
 
         UpdateDisplayText();
+        ApplyDepthTestingMaterialToDisplay();
+    }
+
+    private void ApplyDepthTestingMaterialToDisplay()
+    {
+        if (m_DisplayText == null) return;
+        var r = m_DisplayText.GetComponent<MeshRenderer>();
+        if (r == null) return;
+        // Use Unlit/Transparent (ZTest LEqual) so housing occludes display text correctly.
+        // GUI/Text Shader uses ZTest Always which renders text through opaque geometry.
+        var shader = Shader.Find("Unlit/Transparent");
+        if (shader == null) return;
+        var tex = r.sharedMaterial != null ? r.sharedMaterial.mainTexture : null;
+        var mat = new Material(shader);
+        if (tex != null) mat.mainTexture = tex;
+        mat.color = m_DisplayText.color;
+        mat.renderQueue = 3000;
+        r.material = mat;
     }
 
     private void UpdateDisplayText()
@@ -1309,9 +1327,15 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void UpdateDisplayTextVisibility()
     {
-        if (m_DisplayText == null || m_DisplayAnchor == null || !m_TargetCamera) return;
+        if (m_DisplayText == null || !m_TargetCamera) return;
         var renderer = m_DisplayText.GetComponent<MeshRenderer>();
         if (renderer == null) return;
+        // During animation and in opened state, always show if powered on
+        if (m_State != DigitronState.PlacedClosed || m_DisplayAnchor == null)
+        {
+            renderer.enabled = m_Runtime.IsPoweredOn;
+            return;
+        }
         var toCamera = (m_TargetCamera.transform.position - m_DisplayAnchor.position).normalized;
         var isFacing = Vector3.Dot(toCamera, m_DisplayAnchor.forward) > 0f;
         renderer.enabled = isFacing && m_Runtime.IsPoweredOn;

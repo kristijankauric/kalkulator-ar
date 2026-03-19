@@ -397,6 +397,10 @@ public class MainController : MonoBehaviour
 
         sun.intensity = 0.75f;
         sun.color = new Color(1f, 0.98f, 0.94f, 1f);
+        // Point light mostly from above so shadow falls below the model, not through it
+        sun.transform.rotation = Quaternion.Euler(68f, -30f, 0f);
+        sun.shadowBias = 0.08f;
+        sun.shadowNormalBias = 0.5f;
         LogWebRuntime("Configured runtime lighting for non-burned AR preview");
 #endif
     }

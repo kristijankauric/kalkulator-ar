@@ -9,6 +9,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     private LineRenderer m_Line;
     private Transform m_AnchorTarget;
     private Transform m_BackgroundTransform;
+    private Renderer m_BackgroundRenderer;
     private TextMesh m_LabelTextMesh;
 
     private static readonly Color KNormalColor   = Color.white;
@@ -59,6 +60,11 @@ public class DigitronHotspotMarker : MonoBehaviour
             m_Line.material.color = selected
                 ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
                 : new Color(1f, 1f, 1f, 0.85f);      // white
+        // Background turns orange when selected
+        if (m_BackgroundRenderer != null && m_BackgroundRenderer.material != null)
+            m_BackgroundRenderer.material.color = selected
+                ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
+                : KLabelBackgroundColor;
     }
 
     private void BuildLabel(string label)
@@ -104,8 +110,9 @@ public class DigitronHotspotMarker : MonoBehaviour
         background.transform.localRotation = Quaternion.identity;
         background.transform.localScale = new Vector3(bgWidth, bgHeight, 1f);
         m_BackgroundTransform = background.transform;
-        var bgCollider = background.GetComponent<Collider>();
-        if (bgCollider != null) Destroy(bgCollider);
+        // Keep collider for click detection — add proxy to route clicks to this marker
+        var bgClickProxy = background.AddComponent<DigitronHotspotClickProxy>();
+        bgClickProxy.Setup(this);
         var bgRenderer = background.GetComponent<Renderer>();
         if (bgRenderer != null)
         {
@@ -114,6 +121,7 @@ public class DigitronHotspotMarker : MonoBehaviour
             var mat = CreateOverlayColorMaterial(KLabelBackgroundColor);
             if (mat != null) bgRenderer.material = mat;
             bgRenderer.sortingOrder = 4999;
+            m_BackgroundRenderer = bgRenderer;
         }
 
         var r = tm.GetComponent<MeshRenderer>();
@@ -182,9 +190,11 @@ public class DigitronHotspotMarker : MonoBehaviour
         return true;
     }
 
-    private void OnMouseDown()
+    public void OnClick()
     {
         if (m_Controller != null && !string.IsNullOrEmpty(m_HotspotId))
             m_Controller.SelectHotspot(m_HotspotId);
     }
+
+    private void OnMouseDown() => OnClick();
 }
