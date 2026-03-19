@@ -43,10 +43,16 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
 - Model source-of-truth (aktivni):
   - Scene-assigned prefab na `MainController`:
     `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
+- WebGL runtime model source-of-truth:
+  - prvo klonira scene template `Digitron Editor Preview` (isti setup koji se vidi u Editor Play modu)
+  - tek ako to nije dostupno pada natrag na `MainController.m_DigitronPrefab`
+- Open animacija source-of-truth:
+  - `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/CalculatorOpen.anim`
+  - klip je serijaliziran na `MainController` kao runtime referenca i prosljeđuje se `DigitronCalculatorController` umjesto editor-only `AssetDatabase` lookupa
 - Runtime load put (trenutno):
-  - `Assets/Resources/Digitron/DB_801_03.fbx`
+  - scene template `Digitron Editor Preview` ili `MainController.m_DigitronPrefab`
 - Napomena za model import:
-  - `Assets/Resources/Digitron/DB_801_03.fbx.meta` mora ostati uskladen sa source importer postavkama (materijali ukljuceni), inace runtime daje sivi model bez tekstura.
+  - scene preview instanca trenutno nosi bitne active-state overrideove dobrog modela; zato je ne treba brisati iz scene bez zamjene istim prefab variant setupom
 - Editor fallback model load put:
   - `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
 - Web runtime mode:
@@ -60,6 +66,7 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
 ## 6) Poznati operativni rizici
 - U Editor `Game` pogledu AR kamera moze davati crn ekran ako ostane aktivan AR feed flow.
 - Mogu postojati razlike izmedju modela u `Assets/Models/...` i kopije u `Assets/Resources/...`.
+- Ako `MainController` opet bude usmjeren na `Assets/Resources/Digitron/DB_801_03.fbx`, WebGL ce se vratiti na krivi/plain fallback model.
 - Scene wiring se lako razbije ako se dira `WorldTracker`, `MainObject`, `Placement Canvas`, `Placement Indicator`.
 
 ## 7) Obavezna provjera prije vecih promjena
