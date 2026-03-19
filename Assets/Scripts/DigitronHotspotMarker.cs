@@ -10,7 +10,7 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private static readonly Color KNormalColor   = Color.white;
     private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
-    private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 0.94f);
+    private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 1f);
     private static Texture2D s_WhiteTexture;
 
     public void Initialize(DigitronCalculatorController controller, string hotspotId, string label)
@@ -70,15 +70,10 @@ public class DigitronHotspotMarker : MonoBehaviour
         tm.text      = label;
         tm.anchor    = TextAnchor.MiddleCenter;
         tm.alignment = TextAlignment.Center;
-        tm.fontSize  = 80;
+        tm.fontSize  = 120;
         tm.fontStyle = FontStyle.Bold;
         tm.color     = Color.black;
 
-        // Adaptive characterSize so text always fits inside the background quad.
-        // Text & quad share the same parent scale, so fill ratio =
-        //   characterSize × longestLine × font-width-factor.
-        // With fW ≈ 0.9 for Unity's Arial, target fill ≤ 85 %:
-        //   cs = 0.85 / (longestLine × 0.9) ≈ 0.94 / longestLine
         var longestLine = 1;
         var lineCount = 0;
         foreach (var line in label.Split('\n'))
@@ -87,27 +82,21 @@ public class DigitronHotspotMarker : MonoBehaviour
             lineCount++;
         }
         lineCount = Mathf.Max(1, lineCount);
-        tm.characterSize = Mathf.Min(0.15f, 0.94f / longestLine);
+        tm.characterSize = Mathf.Min(0.55f, 3.5f / longestLine);
 
-        // Dynamic white background sized from actual generated text mesh bounds.
-        // Scale factors are intentionally larger so every label gets a visible
-        // rectangular plate behind all letters (matching the desired look).
-        var bgWidth = 4.20f;
-        var bgHeight = lineCount > 1 ? 2.10f : 1.55f;
-        var meshFilter = tm.GetComponent<MeshFilter>();
-        if (meshFilter != null && meshFilter.sharedMesh != null)
-        {
-            var textBounds = meshFilter.sharedMesh.bounds.size;
-            var paddingX = 0.30f;
-            var paddingY = lineCount > 1 ? 0.40f : 0.30f;
-            bgWidth = Mathf.Max(4.20f, (textBounds.x + paddingX) * 4.8f);
-            bgHeight = Mathf.Max(lineCount > 1 ? 2.10f : 1.55f, (textBounds.y + paddingY) * 2.2f);
-        }
+        // Background sized from characterSize (reliable — mesh bounds may be zero at creation time).
+        // +Z offset puts background FURTHER from camera so it renders before text in the
+        // transparent back-to-front queue, appearing correctly behind the text.
+        var cs = tm.characterSize;
+        var bgWidth  = Mathf.Max(longestLine * cs * 1.25f + cs * 2.0f, cs * 5.0f);
+        var bgHeight = lineCount > 1
+            ? Mathf.Max(lineCount * cs * 1.7f + cs * 1.0f, cs * 4.0f)
+            : Mathf.Max(cs * 2.6f, cs * 3.0f);
 
         var background = GameObject.CreatePrimitive(PrimitiveType.Quad);
         background.name = "LabelBackground";
         background.transform.SetParent(go.transform, false);
-        background.transform.localPosition = new Vector3(0f, 0f, -0.01f);
+        background.transform.localPosition = new Vector3(0f, 0f, 0.01f);
         background.transform.localRotation = Quaternion.identity;
         background.transform.localScale = new Vector3(bgWidth, bgHeight, 1f);
         var bgCollider = background.GetComponent<Collider>();
@@ -118,7 +107,7 @@ public class DigitronHotspotMarker : MonoBehaviour
             bgRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bgRenderer.receiveShadows = false;
             var mat = CreateOverlayColorMaterial(KLabelBackgroundColor);
-            bgRenderer.material = mat;
+            if (mat != null) bgRenderer.material = mat;
             bgRenderer.sortingOrder = 4999;
         }
 
@@ -142,13 +131,17 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private static Material CreateOverlayColorMaterial(Color color)
     {
-        var shader = Shader.Find("GUI/Text Shader");
-        if (shader == null) return new Material(Shader.Find("Unlit/Color")) { color = color };
-        var material = new Material(shader);
-        material.SetColor("_Color", color);
-        material.SetTexture("_MainTex", GetWhiteTexture());
-        material.renderQueue = 5000;
-        return material;
+        var shader = Shader.Find("GUI/Text Shader")
+            ?? Shader.Find("Sprites/Default")
+            ?? Shader.Find("Universal Render Pipeline/Unlit")
+            ?? Shader.Find("Unlit/Color");
+        if (shader == null) return null;
+        var mat = new Material(shader);
+        mat.SetColor("_Color", color);
+        mat.SetColor("_BaseColor", color);
+        mat.SetTexture("_MainTex", GetWhiteTexture());
+        mat.renderQueue = 5000;
+        return mat;
     }
 
     private static Material CreateOverlayTextMaterial(Material source, Color color)

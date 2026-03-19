@@ -496,6 +496,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_TargetFrameRate: 30
   m_DigitronPrefab: {fileID: 100100000, guid: 5af528a9cfea01e49bfb8f0c0993d6e7, type: 3}
+  m_DigitronOpenAnimationClip: {fileID: 7400000, guid: dbe7d73fee52cee41a32a4170a0f5e32, type: 2}
 --- !u!4 &947507229
 Transform:
   m_ObjectHideFlags: 0

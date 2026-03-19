@@ -36,9 +36,15 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private const string KOpenClipName = "CalculatorOpen";
     private const string KFallbackClipName = "Take 001";
-    private const string KStandaloneOpenClipAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/CalculatorOpen.anim";
+    private const string KRuntimeClipResourcesPath = "Digitron/db801-novo-odvojene-tipke";
+    private const string KRuntimeControllerResourcesPath = "Digitron/DigitronAnimator";
+    private const string KRuntimeStandaloneClipResourcesPath = "Digitron/CalculatorOpen";
+#if UNITY_EDITOR
+    private const string KRuntimeClipEditorModelPath = "Assets/Resources/Digitron/db801-novo-odvojene-tipke.fbx";
+#endif
+    private const string KStandaloneOpenClipAssetPath = "Assets/Resources/Digitron/CalculatorOpen.anim";
     private const float KTakeFrameRate = 25f;
-    private const float KClosedPoseFrame = 1f;
+    private const float KClosedPoseFrame = 100f;
     private const float KOpenStartFrame = 100f;
     private const float KOpenEndFrame = 150f;
     private const float KFallbackOpenDuration = 1.1f;
@@ -190,11 +196,13 @@ public class DigitronCalculatorController : MonoBehaviour
     private Transform m_PowerSwitchTransform;
     private Vector3 m_PowerSwitchOnLocalPosition;
     private Vector3 m_PowerSwitchOffLocalPosition;
+    private AnimationClip m_ExplicitOpenAnimationClip;
 
-    public void Initialize(GameObject modelInstance, Camera targetCamera, float targetSize)
+    public void Initialize(GameObject modelInstance, Camera targetCamera, float targetSize, AnimationClip explicitOpenAnimationClip = null)
     {
         m_ModelInstance = modelInstance;
         m_TargetCamera = targetCamera ? targetCamera : Camera.main;
+        m_ExplicitOpenAnimationClip = explicitOpenAnimationClip;
         m_RelevantRenderers.Clear();
 
         try
@@ -546,6 +554,29 @@ public class DigitronCalculatorController : MonoBehaviour
         m_OpenStartTime = 0f;
         m_OpenEndTime = 0f;
 
+        // Ensure Animator controller is assigned before any clip path (Generic model in WebGL needs this).
+        if (m_Animator != null && m_Animator.runtimeAnimatorController == null)
+        {
+            var loadedController = Resources.Load<RuntimeAnimatorController>(KRuntimeControllerResourcesPath);
+            if (loadedController != null)
+            {
+                m_Animator.runtimeAnimatorController = loadedController;
+                Debug.Log($"[Digitron] Loaded Animator controller from Resources/{KRuntimeControllerResourcesPath}");
+            }
+        }
+
+        if (m_ExplicitOpenAnimationClip != null)
+        {
+            m_OpenAnimationClip = m_ExplicitOpenAnimationClip;
+            m_ClosedPoseClip = m_ExplicitOpenAnimationClip;
+            m_ClosedPoseTime = 0f;
+            m_OpenStartTime = 0f;
+            m_OpenEndTime = m_ExplicitOpenAnimationClip.length;
+            Debug.Log($"[Digitron] Open animation source: Explicit clip '{m_ExplicitOpenAnimationClip.name}'");
+            EnsureLegacyAnimationComponent();
+            return;
+        }
+
         if (m_LegacyAnimation != null)
         {
             m_LegacyAnimation.playAutomatically = false;
@@ -558,6 +589,8 @@ public class DigitronCalculatorController : MonoBehaviour
             if (m_LegacyAnimation.GetClip(KOpenClipName) != null)
             {
                 m_OpenAnimationClip = m_LegacyAnimation.GetClip(KOpenClipName);
+                m_ClosedPoseClip = m_OpenAnimationClip;
+                m_ClosedPoseTime = 0f;
                 m_OpenStartTime = 0f;
                 m_OpenEndTime = m_OpenAnimationClip.length;
                 Debug.Log($"[Digitron] Open animation source: Legacy Animation clip '{m_OpenAnimationClip.name}'");
@@ -591,6 +624,7 @@ public class DigitronCalculatorController : MonoBehaviour
                         m_OpenStartTime = 0f;
                         m_OpenEndTime = openClip.length;
                         Debug.Log($"[Digitron] Open animation source: Animator clip '{openClip.name}'");
+                        EnsureLegacyAnimationComponent();
                         return;
                     }
 
@@ -603,10 +637,17 @@ public class DigitronCalculatorController : MonoBehaviour
                         m_OpenStartTime = KOpenStartFrame / KTakeFrameRate;
                         m_OpenEndTime = Mathf.Min(KOpenEndFrame / KTakeFrameRate, fallbackClip.length);
                         Debug.Log($"[Digitron] Open animation source: Animator fallback '{fallbackClip.name}' [{m_OpenStartTime:F2}-{m_OpenEndTime:F2}]");
+                        EnsureLegacyAnimationComponent();
                         return;
                     }
                 }
             }
+        }
+
+        if (TryPrepareAnimationFromResourceSubAssets())
+        {
+            EnsureLegacyAnimationComponent();
+            return;
         }
 
 #if UNITY_EDITOR
@@ -619,11 +660,83 @@ public class DigitronCalculatorController : MonoBehaviour
             m_OpenStartTime = 0f;
             m_OpenEndTime = standaloneClip.length;
             Debug.Log($"[Digitron] Open animation source: Editor standalone '{standaloneClip.name}'");
+            EnsureLegacyAnimationComponent();
             return;
         }
 #endif
 
         Debug.LogWarning("[Digitron] Open animation clip not found, using manual/fallback open.");
+    }
+
+    private void EnsureLegacyAnimationComponent()
+    {
+        // For Generic models in WebGL, Animator.Play()+Update(0) doesn't reliably sample poses.
+        // Adding a runtime Legacy Animation component is the only approach confirmed to work in WebGL.
+        if (m_OpenAnimationClip == null || m_LegacyAnimation != null) return;
+        if (!m_OpenAnimationClip.legacy) m_OpenAnimationClip.legacy = true;
+        m_LegacyAnimation = m_ModelInstance.AddComponent<Animation>();
+        m_LegacyAnimation.playAutomatically = false;
+        m_LegacyAnimation.AddClip(m_OpenAnimationClip, m_OpenAnimationClip.name);
+        Debug.Log($"[Digitron] Added runtime Legacy Animation component for '{m_OpenAnimationClip.name}'");
+    }
+
+    private bool TryPrepareAnimationFromResourceSubAssets()
+    {
+        var clips = Resources.LoadAll(KRuntimeClipResourcesPath)
+            .OfType<AnimationClip>()
+            .ToArray();
+        if (clips == null || clips.Length == 0)
+        {
+#if UNITY_EDITOR
+            clips = AssetDatabase.LoadAllAssetsAtPath(KRuntimeClipEditorModelPath)
+                .OfType<AnimationClip>()
+                .ToArray();
+#endif
+        }
+
+        // For Generic FBX models, sub-asset clips are not returned by Resources.LoadAll.
+        // Try loading the standalone CalculatorOpen.anim directly from Resources.
+        if (clips == null || clips.Length == 0)
+        {
+            var directClip = Resources.Load<AnimationClip>(KRuntimeStandaloneClipResourcesPath);
+            if (directClip != null)
+            {
+                m_OpenAnimationClip = directClip;
+                m_ClosedPoseClip = directClip;
+                m_ClosedPoseTime = 0f;
+                m_OpenStartTime = 0f;
+                m_OpenEndTime = directClip.length;
+                Debug.Log($"[Digitron] Open animation source: Resources direct '{directClip.name}'");
+                return true;
+            }
+            return false;
+        }
+
+        var openClip = clips.FirstOrDefault(c => c != null && c.name == KOpenClipName);
+        if (openClip != null)
+        {
+            m_OpenAnimationClip = openClip;
+            m_ClosedPoseClip = openClip;
+            m_ClosedPoseTime = 0f;
+            m_OpenStartTime = 0f;
+            m_OpenEndTime = openClip.length;
+            Debug.Log($"[Digitron] Open animation source: Resource sub-asset '{openClip.name}'");
+            return true;
+        }
+
+        var fallbackClip = clips.FirstOrDefault(c => c != null && c.name == KFallbackClipName);
+        if (fallbackClip != null)
+        {
+            m_OpenAnimationClip = fallbackClip;
+            m_ClosedPoseClip = fallbackClip;
+            m_ClosedPoseTime = Mathf.Min(KClosedPoseFrame / KTakeFrameRate, fallbackClip.length);
+            m_OpenStartTime = KOpenStartFrame / KTakeFrameRate;
+            m_OpenEndTime = Mathf.Min(KOpenEndFrame / KTakeFrameRate, fallbackClip.length);
+            Debug.Log($"[Digitron] Open animation source: Resource fallback '{fallbackClip.name}' [{m_OpenStartTime:F2}-{m_OpenEndTime:F2}]");
+            return true;
+        }
+
+        return false;
     }
 
     private void TryPrepareManualOpenTransform()
@@ -636,13 +749,14 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void ApplyClosedPose()
     {
+        Debug.Log($"[Digitron] ApplyClosedPose: legacy={m_LegacyAnimation != null}, clip={m_ClosedPoseClip?.name ?? "null"}, time={m_ClosedPoseTime:F2}");
         // Only sample an animation clip for closed pose when we explicitly have one.
         // If only the open segment clip exists, keep importer bind pose as "closed".
         if (m_ClosedPoseClip != null)
         {
             SampleClipAtTime(m_ClosedPoseClip, m_ClosedPoseTime);
         }
-        if (m_FrontCoverTransform != null) m_FrontCoverTransform.localRotation = m_FrontCoverClosedRotation;
+        else if (m_FrontCoverTransform != null) m_FrontCoverTransform.localRotation = m_FrontCoverClosedRotation;
         RecalculateBounds();
     }
 
@@ -650,12 +764,46 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (m_OpenAnimationClip == null) return;
         var sampleTime = Mathf.Lerp(m_OpenStartTime, m_OpenEndTime, Mathf.Clamp01(normalizedTime));
-        m_OpenAnimationClip.SampleAnimation(GetAnimationSampleTarget(), Mathf.Clamp(sampleTime, 0f, m_OpenAnimationClip.length));
+        ApplyClipAtTime(m_OpenAnimationClip, sampleTime, disableAfter: false);
     }
 
     private void SampleClipAtTime(AnimationClip clip, float sampleTime)
     {
         if (clip == null) return;
+        ApplyClipAtTime(clip, sampleTime, disableAfter: true);
+    }
+
+    private void ApplyClipAtTime(AnimationClip clip, float sampleTime, bool disableAfter)
+    {
+        if (clip == null) return;
+        // Primary: use Animation component (Legacy)
+        if (m_LegacyAnimation != null)
+        {
+            if (m_LegacyAnimation.GetClip(clip.name) == null)
+                m_LegacyAnimation.AddClip(clip, clip.name);
+            var state = m_LegacyAnimation[clip.name];
+            if (state != null)
+            {
+                state.speed   = 0f;
+                state.enabled = true;
+                state.weight  = 1f;
+                state.time    = Mathf.Clamp(sampleTime, 0f, clip.length);
+                m_LegacyAnimation.Sample();
+                if (disableAfter) state.enabled = false;
+                return;
+            }
+        }
+        // Secondary: use Animator (Generic)
+        if (m_Animator != null && m_Animator.runtimeAnimatorController != null && clip.length > 0f)
+        {
+            m_Animator.enabled = true;
+            m_Animator.Play(clip.name, 0, Mathf.Clamp01(sampleTime / clip.length));
+            m_Animator.Update(0f);
+            if (disableAfter) m_Animator.enabled = false;
+            return;
+        }
+        // Fallback: direct clip sampling
+        if (!clip.legacy) clip.legacy = true;
         clip.SampleAnimation(GetAnimationSampleTarget(), Mathf.Clamp(sampleTime, 0f, clip.length));
     }
 
@@ -1103,7 +1251,7 @@ public class DigitronCalculatorController : MonoBehaviour
             m_LampRenderer = lampObject.GetComponent<Renderer>();
             m_LampRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             m_LampRenderer.receiveShadows = false;
-            m_LampMaterial = new Material(Shader.Find("Unlit/Color"));
+            m_LampMaterial = new Material(Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default") ?? Shader.Find("Standard"));
             m_LampMaterial.color = new Color(1f, 0.14f, 0.14f, 1f);   // always bright red
             m_LampRenderer.material = m_LampMaterial;
             var collider = lampObject.GetComponent<Collider>();
@@ -1627,7 +1775,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private static Material CreateHotspotMaterial()
     {
-        var material = new Material(Shader.Find("Unlit/Color"));
+        var material = new Material(Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default") ?? Shader.Find("Standard"));
         material.color = new Color(0.96f, 0.92f, 0.80f, 1f); // cream
         return material;
     }

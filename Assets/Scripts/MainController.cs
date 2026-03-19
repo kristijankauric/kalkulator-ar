@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Imagine.WebAR;
+using UnityEngine.SceneManagement;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -10,6 +11,7 @@ public class MainController : MonoBehaviour
 {
     [SerializeField] private int m_TargetFrameRate = 30;
     [SerializeField] private GameObject m_DigitronPrefab;
+    [SerializeField] private AnimationClip m_DigitronOpenAnimationClip;
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
     private float m_WebTargetScaleMultiplier = 4.0f;
@@ -23,9 +25,10 @@ public class MainController : MonoBehaviour
     private float m_EditorPreviewScaleMultiplier = 1.3f;
     private bool m_WebDesktopPreviewInitialized;
 
-    private const string KDigitronResourcePath = "Digitron/DB_801_03";
+    private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
+    private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
 #if UNITY_EDITOR
-    private const string KDigitronEditorAssetPath = "Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx";
+    private const string KDigitronEditorAssetPath = "Assets/Resources/Digitron/db801-novo-odvojene-tipke.fbx";
 #endif
     internal static readonly Dictionary<string, Vector3> HotspotNormalizedAnchors = new Dictionary<string, Vector3>();
     private const string KDigitronRootName = "Digitron Calculator Root";
@@ -167,11 +170,16 @@ public class MainController : MonoBehaviour
             return;
         }
 
-        var digitronPrefab = LoadDigitronPrefab();
         GameObject modelInstance = null;
+        var digitronPrefab = LoadDigitronPrefab();
 #if UNITY_EDITOR
         modelInstance = TryUseExistingEditorPreview(digitronPrefab);
 #endif
+        if (!modelInstance)
+        {
+            modelInstance = TryInstantiateScenePreviewTemplate();
+        }
+
         if (!modelInstance && !digitronPrefab)
         {
             Debug.LogError(GetDigitronPrefabMissingMessage());
@@ -197,7 +205,7 @@ public class MainController : MonoBehaviour
         m_DigitronController = digitronRoot.AddComponent<DigitronCalculatorController>();
         try
         {
-            m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize());
+            m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize(), m_DigitronOpenAnimationClip);
             LogWebRuntime($"SpawnDigitron initialized new instance '{digitronRoot.name}'");
         }
         catch (System.Exception e)
@@ -516,6 +524,11 @@ public class MainController : MonoBehaviour
         {
             if (child == null) continue;
             if (child.name == "Hotspots") continue;
+            if (child.name == KLegacyEditorPreviewName)
+            {
+                child.gameObject.SetActive(false);
+                continue;
+            }
             toRemove.Add(child.gameObject);
         }
 
@@ -525,6 +538,35 @@ public class MainController : MonoBehaviour
             Destroy(go);
         }
 #endif
+    }
+
+    private GameObject TryInstantiateScenePreviewTemplate()
+    {
+        var sceneTemplate = FindSceneGameObject(KLegacyEditorPreviewName);
+        if (!sceneTemplate)
+        {
+            return null;
+        }
+
+#if UNITY_EDITOR
+        if (Application.isPlaying && m_EnableEditorInstantPreview)
+        {
+            return null;
+        }
+#endif
+
+        var renderers = sceneTemplate.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+        {
+            return null;
+        }
+
+        sceneTemplate.SetActive(false);
+        var clone = Instantiate(sceneTemplate);
+        clone.name = KLegacyEditorPreviewName;
+        clone.SetActive(true);
+        LogWebRuntime("Cloned scene preview template for runtime digitron instance");
+        return clone;
     }
 
 #if UNITY_EDITOR
@@ -555,9 +597,21 @@ public class MainController : MonoBehaviour
             {
                 return existingPreview;
             }
+
+            if (!IsCanonicalDigitronPrefab(previewSource))
+            {
+                existingPreview.SetActive(false);
+                Debug.LogWarning($"[MainController] Existing editor preview '{existingPreview.name}' is bound to legacy source '{(previewSource ? previewSource.name : "missing")}', spawning canonical preview instead.");
+                return null;
+            }
         }
 
         return existingPreview;
+    }
+
+    private static bool IsCanonicalDigitronPrefab(GameObject prefab)
+    {
+        return prefab && string.Equals(prefab.name, KDigitronCanonicalPrefabName, System.StringComparison.OrdinalIgnoreCase);
     }
 
     private void HidePlacementUiForEditorPreview()
@@ -835,7 +889,40 @@ public class MainController : MonoBehaviour
 #if !UNITY_EDITOR
     private static GameObject FindSceneGameObject(string objectName)
     {
-        return GameObject.Find(objectName);
+        foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            var match = FindInHierarchy(root.transform, objectName);
+            if (match)
+            {
+                return match.gameObject;
+            }
+        }
+
+        return null;
+    }
+
+    private static Transform FindInHierarchy(Transform root, string objectName)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        if (root.name == objectName)
+        {
+            return root;
+        }
+
+        for (var i = 0; i < root.childCount; i++)
+        {
+            var match = FindInHierarchy(root.GetChild(i), objectName);
+            if (match)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 #endif
 }
