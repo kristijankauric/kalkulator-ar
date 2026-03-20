@@ -49,7 +49,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KOpenEndFrame = 150f;
     private const float KFallbackOpenDuration = 1.1f;
     private const float KManualOpenAngle = -110f;
-    private const float KPhysicalKeyPressDepth = 0.010f;
+    private const float KPhysicalKeyPressDepth = 0.013f;
     private const float KPhysicalKeyPressDuration = 0.08f;
     private const float KOpenButtonWidth = 160f;
     private const float KOpenButtonHeight = 50f;
@@ -1636,25 +1636,49 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void TryPreparePowerSwitchVisual(List<Renderer> candidates)
     {
-        var expectedLocal = GetLocalPointForNormalizedAnchor(KeyLayouts.First(layout => layout.KeyId == DigitronKeyId.Power).NormalizedAnchor);
+        // Search by name first — sklopka may be outside the Y-range filter used for key candidates.
         Renderer best = null;
-        var bestScore = float.MaxValue;
-        foreach (var candidate in candidates)
+        foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
         {
-            var localBounds = CalculateRendererLocalBounds(candidate);
-            var center = localBounds.center;
-            var dx = Mathf.Abs(center.x - expectedLocal.x);
-            var dy = Mathf.Abs(center.y - expectedLocal.y);
-            var score = dx + (dy * 1.2f);
-            if (score >= bestScore) continue;
-            bestScore = score;
-            best = candidate;
+            if (r.gameObject.name.ToLowerInvariant().Contains("sklopka"))
+            {
+                best = r;
+                break;
+            }
+        }
+
+        // Fall back to proximity search within candidates if name search found nothing.
+        if (best == null)
+        {
+            var expectedLocal = GetLocalPointForNormalizedAnchor(KeyLayouts.First(layout => layout.KeyId == DigitronKeyId.Power).NormalizedAnchor);
+            var bestScore = float.MaxValue;
+            foreach (var candidate in candidates)
+            {
+                var localBounds = CalculateRendererLocalBounds(candidate);
+                var center = localBounds.center;
+                var score = Mathf.Abs(center.x - expectedLocal.x) + (Mathf.Abs(center.y - expectedLocal.y) * 1.2f);
+                if (score >= bestScore) continue;
+                bestScore = score;
+                best = candidate;
+            }
         }
 
         if (best == null) return;
         m_PowerSwitchTransform = best.transform;
         m_PowerSwitchOnLocalPosition = m_PowerSwitchTransform.localPosition;
-        m_PowerSwitchOffLocalPosition = m_PowerSwitchOnLocalPosition + (m_PowerSwitchTransform.InverseTransformDirection(m_ModelInstance.transform.right) * 0.01f);
+        m_PowerSwitchOffLocalPosition = m_PowerSwitchOnLocalPosition + new Vector3(+0.038f, 0f, 0f);
+
+        // Add a collider + hit target directly on the sklopka mesh so clicking always works
+        // regardless of where the mesh is positioned in the scene.
+        if (best.gameObject.GetComponent<DigitronKeyHitTarget>() == null)
+        {
+            var col = best.gameObject.GetComponent<BoxCollider>() ?? best.gameObject.AddComponent<BoxCollider>();
+            col.size = new Vector3(0.12f, 0.08f, 0.12f);
+            col.center = Vector3.zero;
+            var switchTarget = best.gameObject.AddComponent<DigitronKeyHitTarget>();
+            switchTarget.Initialize(this, DigitronKeyId.Power);
+            m_KeyTargets.Add(switchTarget);
+        }
     }
 
     private void SetCalculatorInteractionVisible(bool isVisible)
