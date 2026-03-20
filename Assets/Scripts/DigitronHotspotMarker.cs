@@ -11,6 +11,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Renderer m_BackgroundRenderer;
     private TextMesh m_LabelTextMesh;
     private Texture2D m_BackgroundTexture;
+    private Transform m_LabelTransform;
 
     private static readonly Color KNormalColor   = Color.white;
     private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
@@ -33,8 +34,8 @@ public class DigitronHotspotMarker : MonoBehaviour
         m_Line = gameObject.AddComponent<LineRenderer>();
         m_Line.useWorldSpace        = true;
         m_Line.positionCount        = 2;
-        m_Line.startWidth           = 0.005f;
-        m_Line.endWidth             = 0.0015f;
+        m_Line.startWidth           = 0.010f;
+        m_Line.endWidth             = 0.004f;
         m_Line.shadowCastingMode    = UnityEngine.Rendering.ShadowCastingMode.Off;
         m_Line.receiveShadows       = false;
         m_Line.generateLightingData = false;
@@ -74,6 +75,14 @@ public class DigitronHotspotMarker : MonoBehaviour
         go.transform.SetParent(transform, false);
         go.transform.localPosition = new Vector3(0f, 0f, -0.15f);
         go.transform.localScale    = Vector3.one;
+        m_LabelTransform = go.transform;
+
+        // Counter-scale to neutralize the parent's non-uniform (bgW vs bgH) scale so
+        // text characters always render with equal X/Y world scale (no stretch/squish).
+        var psX = transform.lossyScale.x;
+        var psY = transform.lossyScale.y;
+        if (psX > 0.0001f && psY > 0.0001f)
+            go.transform.localScale = new Vector3(1f, psX / psY, 1f);
 
         var tm = go.AddComponent<TextMesh>();
         if (tm == null) return;
@@ -93,11 +102,10 @@ public class DigitronHotspotMarker : MonoBehaviour
             lineCount++;
         }
         lineCount = Mathf.Max(1, lineCount);
-        tm.characterSize = Mathf.Min(0.55f, 3.5f / longestLine);
+        tm.characterSize = Mathf.Min(0.30f, 2.0f / longestLine);
 
-        // Background sized from characterSize (reliable — mesh bounds may be zero at creation time).
-        // +Z offset puts background FURTHER from camera so it renders before text in the
-        // transparent back-to-front queue, appearing correctly behind the text.
+        // Start with a rough background size — FitBackgroundToText() will correct it
+        // once the TextMesh mesh has been built and bounds are readable.
         var cs = tm.characterSize;
         var bgWidth  = Mathf.Max(longestLine * cs * 4.0f + cs * 8.0f, cs * 16.0f);
         var bgHeight = lineCount > 1
@@ -134,6 +142,39 @@ public class DigitronHotspotMarker : MonoBehaviour
         r.sortingOrder = 5000;
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         r.receiveShadows    = false;
+
+        StartCoroutine(FitBackgroundToText());
+    }
+
+    private System.Collections.IEnumerator FitBackgroundToText()
+    {
+        var textRenderer = m_LabelTextMesh?.GetComponent<MeshRenderer>();
+        if (textRenderer == null || m_BackgroundTransform == null) yield break;
+
+        // Wait up to 10 frames for Unity to build the TextMesh geometry.
+        for (var i = 0; i < 10; i++)
+        {
+            yield return null;
+            if (textRenderer.bounds.size.magnitude > 0.0001f) break;
+        }
+
+        if (textRenderer.bounds.size.magnitude < 0.0001f) yield break;
+
+        // Use actual world-space text bounds to size the background precisely.
+        var wb = textRenderer.bounds;
+        var padX = wb.size.x * 0.18f;
+        var padY = wb.size.y * 0.35f;
+
+        var parentScaleX = m_BackgroundTransform.parent != null ? m_BackgroundTransform.parent.lossyScale.x : 1f;
+        var parentScaleY = m_BackgroundTransform.parent != null ? m_BackgroundTransform.parent.lossyScale.y : 1f;
+
+        if (Mathf.Abs(parentScaleX) < 0.0001f || Mathf.Abs(parentScaleY) < 0.0001f) yield break;
+
+        m_BackgroundTransform.localScale = new Vector3(
+            (wb.size.x + padX * 2f) / parentScaleX,
+            (wb.size.y + padY * 2f) / parentScaleY,
+            m_BackgroundTransform.localScale.z
+        );
     }
 
     private static Texture2D GetWhiteTexture()
@@ -185,6 +226,15 @@ public class DigitronHotspotMarker : MonoBehaviour
         material.SetTexture("_MainTex", mainTex != null ? mainTex : GetWhiteTexture());
         material.renderQueue = 5000;
         return material;
+    }
+
+    private void LateUpdate()
+    {
+        // Billboard: always face the camera regardless of parent rotation.
+        if (m_LabelTransform != null && Camera.main != null)
+            m_LabelTransform.rotation = Camera.main.transform.rotation;
+
+        UpdateLine();
     }
 
     public void OnClick()

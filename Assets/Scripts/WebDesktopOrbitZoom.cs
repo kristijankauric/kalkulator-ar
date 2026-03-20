@@ -2,13 +2,17 @@ using UnityEngine;
 
 public class WebDesktopOrbitZoom : MonoBehaviour
 {
-    [SerializeField] private float m_RotateSpeed = 0.02f;
+    [SerializeField] private float m_RotateSpeed = 0.012f;
     [SerializeField] private float m_ZoomSpeed = 0.25f;
     [SerializeField] private float m_MinScale = 0.65f;
     [SerializeField] private float m_MaxScale = 2.4f;
 
+    private const float KDragThreshold = 8f;  // pixels before drag mode activates
+
     private Vector3 m_BaseScale;
     private float m_CurrentScaleMultiplier = 1f;
+    private Vector2 m_MousePressPos;
+    private bool m_IsDragging;
 
     private void Awake()
     {
@@ -17,13 +21,27 @@ public class WebDesktopOrbitZoom : MonoBehaviour
 
     private void Update()
     {
-        // Desktop drag rotate
+        // Desktop drag rotate — wait for a minimum drag distance so
+        // clicking on calculator keys doesn't accidentally rotate the model.
+        if (Input.GetMouseButtonDown(0))
+        {
+            m_MousePressPos = Input.mousePosition;
+            m_IsDragging = false;
+        }
         if (Input.GetMouseButton(0))
         {
-            var dx = Input.GetAxis("Mouse X");
-            var dy = Input.GetAxis("Mouse Y");
-            transform.Rotate(Vector3.up, -dx * m_RotateSpeed * 180f, Space.World);
-            transform.Rotate(Vector3.right, dy * m_RotateSpeed * 120f, Space.Self);
+            if (!m_IsDragging)
+            {
+                var moved = ((Vector2)Input.mousePosition - m_MousePressPos).magnitude;
+                if (moved > KDragThreshold) m_IsDragging = true;
+            }
+            if (m_IsDragging)
+            {
+                var dx = Input.GetAxis("Mouse X");
+                var dy = Input.GetAxis("Mouse Y");
+                transform.Rotate(Vector3.up, -dx * m_RotateSpeed * 180f, Space.World);
+                transform.Rotate(Vector3.right, dy * m_RotateSpeed * 120f, Space.Self);
+            }
         }
 
         // Mouse wheel zoom

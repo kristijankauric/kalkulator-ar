@@ -19,7 +19,7 @@ public class MainController : MonoBehaviour
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
     private Vector3 m_WebDesktopSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebMobileSpawnLocalEulerAngles  = new Vector3(0f, 180f, 0f);
+    private Vector3 m_WebMobileSpawnLocalEulerAngles  = new Vector3(0f, 0f, 180f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
@@ -370,9 +370,10 @@ public class MainController : MonoBehaviour
             return;
         }
 
-        cam.allowHDR = false;
-        cam.allowMSAA = false;
-        LogWebRuntime("Configured runtime camera (HDR/MSAA disabled)");
+        cam.allowHDR  = false;
+        cam.allowMSAA = true;
+        QualitySettings.antiAliasing = 4;
+        LogWebRuntime("Configured runtime camera (HDR disabled, MSAA 4x enabled)");
 #endif
     }
 

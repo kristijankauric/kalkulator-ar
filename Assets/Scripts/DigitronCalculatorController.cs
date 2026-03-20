@@ -145,7 +145,7 @@ public class DigitronCalculatorController : MonoBehaviour
         { "board",    new[] { "plocica_02" } },      // main PCB board surface
     };
 
-    private MaterialPropertyBlock m_DimBlock;
+    private readonly Dictionary<Renderer, Material[]> m_GhostSaved = new Dictionary<Renderer, Material[]>();
 
     private readonly Dictionary<string, DigitronHotspotMarker> m_HotspotMarkers = new Dictionary<string, DigitronHotspotMarker>();
     private readonly Dictionary<string, Transform> m_HotspotAnchors = new Dictionary<string, Transform>();
@@ -359,10 +359,25 @@ public class DigitronCalculatorController : MonoBehaviour
         EnsureGuiStyles();
         // Responsive font sizes — recalculated every frame based on screen height
         var fs = Screen.height;
-        m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 12, 24);
-        m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 28);
-        m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.020f), 11, 20);
-        m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        var isMobile = LibraryManager.JSIsDesktopPreview() == 0;
+#else
+        var isMobile = false;
+#endif
+        if (isMobile)
+        {
+            m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.050f), 22, 60);
+            m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.048f), 22, 60);
+            m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.036f), 16, 46);
+            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.048f), 22, 60);
+        }
+        else
+        {
+            m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 12, 24);
+            m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 28);
+            m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.020f), 11, 20);
+            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
+        }
         if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
     }
@@ -401,7 +416,7 @@ public class DigitronCalculatorController : MonoBehaviour
         var lineH     = Screen.height * 0.058f;
         var titleLineCount = hotspot.Title.Split('\n').Length;
         var titleH    = lineH * titleLineCount;
-        var panelW    = Screen.width  * 0.88f;
+        var panelW    = Screen.width  * 0.50f;
         var descW     = panelW - pad * 2f;
 
         // Auto-height description so text is never clipped
@@ -416,7 +431,17 @@ public class DigitronCalculatorController : MonoBehaviour
         var panelY  = Screen.height - panelH - btnH - margin * 2f;
         panelY = Mathf.Max(panelY, margin);   // never go above top edge
 
-        GUI.Box(new Rect(panelX, panelY, panelW, panelH), GUIContent.none, m_InfoBoxStyle);
+        var panelRect = new Rect(panelX, panelY, panelW, panelH);
+        // Draw background: tiled texture at 1:1 pixel scale, or solid fallback
+        if (m_TexPapirPodloga != null)
+        {
+            GUI.DrawTextureWithTexCoords(panelRect, m_TexPapirPodloga,
+                new Rect(0f, 0f, panelW / m_TexPapirPodloga.width, panelH / m_TexPapirPodloga.height));
+        }
+        else
+        {
+            GUI.Box(panelRect, GUIContent.none, m_InfoBoxStyle);
+        }
 
         // Title
         GUI.Label(new Rect(panelX + pad, panelY + pad, panelW - pad * 2f - closeSize - 4f, titleH),
@@ -1328,11 +1353,13 @@ public class DigitronCalculatorController : MonoBehaviour
     private void UpdateHotspotMarkersFacingCamera()
     {
         if (!m_TargetCamera) return;
+        // Use camera-parallel billboard (no up-axis constraint) so labels always
+        // face the camera head-on regardless of viewing angle.
+        var billboardRot = m_TargetCamera.transform.rotation * Quaternion.Euler(0f, 180f, 0f);
         foreach (var marker in m_HotspotMarkers.Values)
         {
             if (!marker || !marker.gameObject.activeSelf) continue;
-            marker.transform.LookAt(m_TargetCamera.transform.position, Vector3.up);
-            marker.transform.Rotate(0f, 180f, 0f);
+            marker.transform.rotation = billboardRot;
             marker.UpdateLine();
         }
     }
@@ -1636,6 +1663,10 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void TryPreparePowerSwitchVisual(List<Renderer> candidates)
     {
+        // Guard: only initialize once. Re-reading after RefreshCalculatorPresentation() has moved
+        // the switch would treat the ON position as the new OFF, causing drift on each rebuild.
+        if (m_PowerSwitchTransform != null) return;
+
         // Search by name first — sklopka may be outside the Y-range filter used for key candidates.
         Renderer best = null;
         foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
@@ -1665,8 +1696,10 @@ public class DigitronCalculatorController : MonoBehaviour
 
         if (best == null) return;
         m_PowerSwitchTransform = best.transform;
-        m_PowerSwitchOnLocalPosition = m_PowerSwitchTransform.localPosition;
-        m_PowerSwitchOffLocalPosition = m_PowerSwitchOnLocalPosition + new Vector3(+0.038f, 0f, 0f);
+        // Scene position = OFF (switch placed in off state in the scene).
+        // ON = offset towards the red lamp (positive X = right towards lampica).
+        m_PowerSwitchOffLocalPosition = m_PowerSwitchTransform.localPosition;
+        m_PowerSwitchOnLocalPosition  = m_PowerSwitchOffLocalPosition + new Vector3(+0.038f, 0f, 0f);
 
         // Add a collider + hit target directly on the sklopka mesh so clicking always works
         // regardless of where the mesh is positioned in the scene.
@@ -1677,7 +1710,7 @@ public class DigitronCalculatorController : MonoBehaviour
             col.center = Vector3.zero;
             var switchTarget = best.gameObject.AddComponent<DigitronKeyHitTarget>();
             switchTarget.Initialize(this, DigitronKeyId.Power);
-            m_KeyTargets.Add(switchTarget);
+            // Do NOT add to m_KeyTargets — the switch stays visible in all calculator states.
         }
     }
 
@@ -1770,7 +1803,7 @@ public class DigitronCalculatorController : MonoBehaviour
             var anchorPos = anchor != null
                 ? anchor.position
                 : GetWorldPointForNormalizedAnchor(hotspot.NormalizedViewportAnchor);
-            var spreadDist = m_ModelLocalBounds.size.magnitude * 0.14f;
+            var spreadDist = m_ModelLocalBounds.size.magnitude * 0.19f;
             var perHotspotDistance = spreadDist * Mathf.Max(1f, hotspot.MarkerLocalDir.magnitude);
             var worldOffset = m_ModelInstance.transform.TransformDirection(hotspot.MarkerLocalDir.normalized) * perHotspotDistance;
             var markerPos = anchorPos + worldOffset;
@@ -1804,23 +1837,90 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_ModelInstance == null) return;
         var allRenderers = m_ModelInstance.GetComponentsInChildren<Renderer>(true);
         if (allRenderers == null) return;
-        var hasSelection = !string.IsNullOrEmpty(selectedId);
 
-        string[] selectedKeywords = null;
-        if (hasSelection) KHotspotMeshKeywords.TryGetValue(selectedId, out selectedKeywords);
+        // Restore previously ghosted renderers first
+        RestoreGhostRenderers();
 
-        if (m_DimBlock == null) m_DimBlock = new MaterialPropertyBlock();
-        m_DimBlock.Clear();
-        m_DimBlock.SetColor("_Color", new Color(0.22f, 0.22f, 0.22f, 1f));
+        if (string.IsNullOrEmpty(selectedId)) return;
+
+        KHotspotMeshKeywords.TryGetValue(selectedId, out var selectedKeywords);
 
         foreach (var r in allRenderers)
         {
             if (r == null) continue;
-            if (!hasSelection || IsRendererForHotspot(r, selectedKeywords))
-                r.SetPropertyBlock(null);
-            else
-                r.SetPropertyBlock(m_DimBlock);
+            if (IsRendererForHotspot(r, selectedKeywords)) continue;
+            GhostRenderer(r);
         }
+    }
+
+    private void GhostRenderer(Renderer r)
+    {
+        // Save the original shared materials so we can restore them exactly.
+        m_GhostSaved[r] = r.sharedMaterials;
+
+        // Create instanced copies with transparency enabled.
+        var origShared = r.sharedMaterials;
+        var ghostMats  = new Material[origShared.Length];
+        for (var i = 0; i < origShared.Length; i++)
+        {
+            var orig = origShared[i];
+            var inst = orig != null ? new Material(orig) : new Material(Shader.Find("Standard"));
+
+            // Standard (Built-in) shader — enable Transparent mode.
+            if (inst.HasProperty("_Mode"))
+            {
+                inst.SetFloat("_Mode", 3);
+                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                inst.SetInt("_ZWrite", 0);
+                inst.DisableKeyword("_ALPHATEST_ON");
+                inst.EnableKeyword("_ALPHABLEND_ON");
+                inst.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                inst.renderQueue = 3000;
+            }
+            // URP Lit shader — enable Transparent surface.
+            if (inst.HasProperty("_Surface"))
+            {
+                inst.SetFloat("_Surface", 1);
+                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                inst.SetInt("_ZWrite", 0);
+                inst.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                inst.renderQueue = 3000;
+            }
+            // Apply ghost colour: blend original toward light-gray so dark/textureless
+            // objects remain visible rather than disappearing against a light background.
+            const float kAlpha  = 0.30f;
+            const float kWhite  = 0.55f; // how much to shift toward light-gray
+            if (inst.HasProperty("_Color"))
+            {
+                var c = inst.GetColor("_Color");
+                var g = Color.Lerp(c, new Color(0.80f, 0.80f, 0.80f, 1f), kWhite);
+                inst.SetColor("_Color", new Color(g.r, g.g, g.b, kAlpha));
+            }
+            if (inst.HasProperty("_BaseColor"))
+            {
+                var c = inst.GetColor("_BaseColor");
+                var g = Color.Lerp(c, new Color(0.80f, 0.80f, 0.80f, 1f), kWhite);
+                inst.SetColor("_BaseColor", new Color(g.r, g.g, g.b, kAlpha));
+            }
+
+            ghostMats[i] = inst;
+        }
+        r.materials = ghostMats;
+    }
+
+    private void RestoreGhostRenderers()
+    {
+        foreach (var kv in m_GhostSaved)
+        {
+            if (kv.Key == null) continue;
+            // Destroy temporary instances to avoid memory leaks.
+            foreach (var m in kv.Key.materials)
+                if (m != null) Destroy(m);
+            kv.Key.materials = kv.Value;
+        }
+        m_GhostSaved.Clear();
     }
 
     private static bool IsRendererForHotspot(Renderer r, string[] keywords)
@@ -1902,6 +2002,8 @@ public class DigitronCalculatorController : MonoBehaviour
         m_TexSoloTrakica   ??= Resources.Load<Texture2D>("solo trakica");
         m_TexPapirPodloga  ??= Resources.Load<Texture2D>("papir podloga kvadrati");
         m_TexDigitronNaslov ??= Resources.Load<Texture2D>("digitron naslov");
+        // Enable repeat-tiling so the info box background tiles at 1:1 pixel scale
+        if (m_TexPapirPodloga != null) m_TexPapirPodloga.wrapMode = TextureWrapMode.Repeat;
 
         // Textures: use assigned assets, fall back to solid colours
         var btnBg    = m_TexSoloTrakica  ?? MakeTex(new Color(0.14f, 0.14f, 0.20f, 0.96f));

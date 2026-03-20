@@ -408,6 +408,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Digitron Editor Preview
       objectReference: {fileID: 0}
+    - target: {fileID: 1539860806484279080, guid: 5af528a9cfea01e49bfb8f0c0993d6e7, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.2628
+      objectReference: {fileID: 0}
     - target: {fileID: 6196388061091527493, guid: 5af528a9cfea01e49bfb8f0c0993d6e7, type: 3}
       propertyPath: m_LocalRotation.w
       value: 0.7072302
