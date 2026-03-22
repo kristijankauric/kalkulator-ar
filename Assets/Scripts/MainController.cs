@@ -12,6 +12,13 @@ public class MainController : MonoBehaviour
     [SerializeField] private int m_TargetFrameRate = 30;
     [SerializeField] private GameObject m_DigitronPrefab;
     [SerializeField] private AnimationClip m_DigitronOpenAnimationClip;
+    [SerializeField] private GameObject m_BaterijaMeshSource;
+    // Optional: assign a plain metallic material to replace the battery end-cap material slot
+    [SerializeField] private Material m_BaterijaCapMaterial;
+    [SerializeField] private Vector3 m_BatRot01 = new Vector3(-90f, 0f, 0f);
+    [SerializeField] private Vector3 m_BatRot02 = new Vector3(  0f, 0f, 0f);
+    [SerializeField] private Vector3 m_BatRot03 = new Vector3(  0f, 0f, 0f);
+    [SerializeField] private Vector3 m_BatRot04 = new Vector3(  0f, 0f, 0f);
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
     private float m_WebTargetScaleMultiplier = 3.0f;
@@ -219,6 +226,7 @@ public class MainController : MonoBehaviour
         {
             Debug.LogError($"[MainController] DigitronCalculatorController.Initialize threw: {e}");
         }
+        SwapBaterija(modelInstance);
 
 #if UNITY_EDITOR
         if (Application.isPlaying && m_EnableEditorInstantPreview)
@@ -233,6 +241,66 @@ public class MainController : MonoBehaviour
             AttachDesktopPreviewControls(digitronRoot.transform);
         }
 #endif
+    }
+
+    private void SwapBaterija(GameObject modelRoot)
+    {
+        if (m_BaterijaMeshSource == null || modelRoot == null) return;
+
+        var sourceMf = m_BaterijaMeshSource.GetComponentInChildren<MeshFilter>(true);
+        var sourceMr = m_BaterijaMeshSource.GetComponentInChildren<MeshRenderer>(true);
+        if (sourceMf == null || sourceMr == null)
+        {
+            Debug.LogWarning("[MainController] SwapBaterija: no MeshFilter/Renderer found in m_BaterijaMeshSource");
+            return;
+        }
+
+        var newMesh = sourceMf.sharedMesh;
+
+        // Create instanced materials with horizontal texture flip (mirror U).
+        var srcMats = sourceMr.sharedMaterials;
+        var flippedMats = new Material[srcMats.Length];
+        for (var i = 0; i < srcMats.Length; i++)
+        {
+            if (srcMats[i] == null) continue;
+            // If a cap material override is assigned, use it for any slot that has no texture
+            // (end caps typically have no label texture)
+            if (m_BaterijaCapMaterial != null && srcMats[i].mainTexture == null)
+            {
+                flippedMats[i] = m_BaterijaCapMaterial;
+                continue;
+            }
+            flippedMats[i] = new Material(srcMats[i]);
+            if (flippedMats[i].mainTexture != null)
+            {
+                flippedMats[i].mainTextureScale  = new Vector2(-1f, 1f);
+                flippedMats[i].mainTextureOffset = new Vector2(1f, 0f);
+            }
+        }
+
+        var rotMap = new Dictionary<string, Vector3>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            { "baterija_01", m_BatRot01 },
+            { "baterija_02", m_BatRot02 },
+            { "baterija_03", m_BatRot03 },
+            { "baterija_04", m_BatRot04 },
+        };
+
+        var swapped = 0;
+        foreach (var r in modelRoot.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (!r.gameObject.name.ToLowerInvariant().Contains("baterija")) continue;
+
+            var mf = r.GetComponent<MeshFilter>();
+            if (mf != null) mf.sharedMesh = newMesh;
+            r.sharedMaterials = flippedMats;
+
+            if (rotMap.TryGetValue(r.gameObject.name, out var rot))
+                r.transform.localEulerAngles = rot;
+
+            swapped++;
+        }
+        Debug.Log($"[MainController] SwapBaterija: swapped {swapped} renderer(s)");
     }
 
     private void ResetDigitron()
@@ -558,13 +626,6 @@ public class MainController : MonoBehaviour
         {
             return null;
         }
-
-#if UNITY_EDITOR
-        if (Application.isPlaying && m_EnableEditorInstantPreview)
-        {
-            return null;
-        }
-#endif
 
         var renderers = sceneTemplate.GetComponentsInChildren<Renderer>(true);
         if (renderers == null || renderers.Length == 0)

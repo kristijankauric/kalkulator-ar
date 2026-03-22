@@ -6,6 +6,9 @@ public class EditorPreviewMouseOrbit : MonoBehaviour
     [SerializeField] private float m_PitchMin = -35f;
     [SerializeField] private float m_PitchMax = 35f;
     [SerializeField] private float m_FocusSpeed = 4f;
+    [SerializeField] private float m_ZoomSpeed = 0.7f;
+    [SerializeField] private float m_MinCameraDistance = 0.35f;
+    [SerializeField] private float m_MaxCameraDistance = 6.5f;
 
     private float m_Yaw;
     private float m_Pitch;
@@ -72,7 +75,25 @@ public class EditorPreviewMouseOrbit : MonoBehaviour
         }
 
         transform.localRotation = Quaternion.Euler(m_Pitch, m_Yaw, 0f);
+        HandleZoom();
 #endif
+    }
+
+    private void HandleZoom()
+    {
+        var scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) < 0.0001f) return;
+
+        var cam = Camera.main;
+        if (!cam) return;
+
+        var focusPoint = transform.position;
+        var toCam = cam.transform.position - focusPoint;
+        var distance = toCam.magnitude;
+        if (distance < 0.0001f) return;
+
+        var targetDistance = Mathf.Clamp(distance - (scroll * m_ZoomSpeed), m_MinCameraDistance, m_MaxCameraDistance);
+        cam.transform.position = focusPoint + (toCam.normalized * targetDistance);
     }
 
     private static float NormalizeAngle(float angle)

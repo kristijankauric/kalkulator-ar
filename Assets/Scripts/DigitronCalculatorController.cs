@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Rendering;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -62,6 +63,8 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KFrontSurfaceOffset = 0.02f;
     private const float KLampScale = 0.028f;
     private const float KDisplayMaskDepthOffset = 0.006f;
+    private const float KDisplayCharacterSize = 0.032f;
+    private static readonly Vector3 KDisplayLocalTextPosition = new Vector3(-0.251f, 0.048f, 0.048f);
     private const float KMinimumProjectedKeySize = 10f;
     private const string KDisplayFontAssetPath = "Assets/Models/digital-7 (mono).ttf";
     private const float KKeypadMinX = 0.205f;
@@ -171,6 +174,13 @@ public class DigitronCalculatorController : MonoBehaviour
     [SerializeField] private Texture2D m_TexDigitronNaslov;
     [SerializeField] private Texture2D m_TexSoloTrakica;
     [SerializeField] private Texture2D m_TexPapirPodloga;
+    // New baterija model — assign from Assets/!k/baterija.fbx in Inspector
+    [SerializeField] private GameObject m_BaterijaPrefab;
+    // Local Euler rotations for baterija_01..04 — set via BaterijaSwapper tool then copy here
+    [SerializeField] private Vector3 m_BatRot01 = new Vector3(270f,  0f,   0f);
+    [SerializeField] private Vector3 m_BatRot02 = new Vector3(  0f, 90f,  90f);
+    [SerializeField] private Vector3 m_BatRot03 = new Vector3(  0f, 90f, 270f);
+    [SerializeField] private Vector3 m_BatRot04 = new Vector3(  0f, 90f,  90f);
     private GUIStyle m_OpenButtonStyle;
     private GUIStyle m_InfoBoxStyle;
     private GUIStyle m_InfoTitleStyle;
@@ -229,6 +239,7 @@ public class DigitronCalculatorController : MonoBehaviour
             EnsureHotspotAnchors();
             RebuildKeyTargets();
             RebuildHotspotMarkers();
+            SwapBaterija();
             ResetCalculatorRuntime();
             SetHotspotsVisible(false);
             SetCalculatorInteractionVisible(true);
@@ -319,6 +330,9 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_State != DigitronState.PlacedClosed) return;
         m_Runtime.PressKey(keyId);
         RefreshCalculatorPresentation();
+#if UNITY_EDITOR
+        Debug.Log($"[Digitron] Key={keyId}, display='{m_Runtime.DisplayText}', on={m_Runtime.IsPoweredOn}");
+#endif
     }
 
     public void HandlePhysicalKeyTargetPressed(DigitronKeyHitTarget keyTarget)
@@ -369,15 +383,16 @@ public class DigitronCalculatorController : MonoBehaviour
             m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.050f), 22, 60);
             m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.048f), 22, 60);
             m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.036f), 16, 46);
-            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.048f), 22, 60);
+            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.065f), 28, 80);
         }
         else
         {
             m_OpenButtonStyle.fontSize  = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 12, 24);
             m_InfoTitleStyle.fontSize   = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 28);
             m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.020f), 11, 20);
-            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.028f), 13, 24);
+            m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.042f), 18, 40);
         }
+        DrawDisplayOverlay();
         if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
     }
@@ -410,7 +425,6 @@ public class DigitronCalculatorController : MonoBehaviour
         var hotspot = Hotspots.FirstOrDefault(entry => entry.Id == m_SelectedHotspotId);
         if (string.IsNullOrEmpty(hotspot.Id)) return;
 
-        // All dimensions as screen-percentage so portrait/landscape/tablet all work
         var pad       = Screen.height * 0.018f;
         var closeSize = Screen.height * 0.05f;
         var lineH     = Screen.height * 0.058f;
@@ -419,7 +433,6 @@ public class DigitronCalculatorController : MonoBehaviour
         var panelW    = Screen.width  * 0.50f;
         var descW     = panelW - pad * 2f;
 
-        // Auto-height description so text is never clipped
         var descContent = new GUIContent(hotspot.Description);
         var descH = m_InfoDescStyle.CalcHeight(descContent, descW);
         descH = Mathf.Max(descH, Screen.height * 0.04f);
@@ -429,10 +442,9 @@ public class DigitronCalculatorController : MonoBehaviour
         var btnH    = Screen.height * 0.065f;
         var margin  = Screen.height * 0.025f;
         var panelY  = Screen.height - panelH - btnH - margin * 2f;
-        panelY = Mathf.Max(panelY, margin);   // never go above top edge
+        panelY = Mathf.Max(panelY, margin);
 
         var panelRect = new Rect(panelX, panelY, panelW, panelH);
-        // Draw background: tiled texture at 1:1 pixel scale, or solid fallback
         if (m_TexPapirPodloga != null)
         {
             GUI.DrawTextureWithTexCoords(panelRect, m_TexPapirPodloga,
@@ -443,22 +455,65 @@ public class DigitronCalculatorController : MonoBehaviour
             GUI.Box(panelRect, GUIContent.none, m_InfoBoxStyle);
         }
 
-        // Title
         GUI.Label(new Rect(panelX + pad, panelY + pad, panelW - pad * 2f - closeSize - 4f, titleH),
                   hotspot.Title, m_InfoTitleStyle);
 
-        // Close ×
         if (GUI.Button(new Rect(panelX + panelW - pad - closeSize, panelY + pad * 0.4f, closeSize, closeSize),
-                       "×", m_CloseButtonStyle))
+                       "�", m_CloseButtonStyle))
         {
             m_SelectedHotspotId = null;
             ApplyHotspotHighlight(null);
             UpdateHotspotMarkerStates();
         }
 
-        // Description (auto-sized)
         GUI.Label(new Rect(panelX + pad, panelY + pad + titleH + pad * 0.5f, descW, descH),
                   hotspot.Description, m_InfoDescStyle);
+    }
+
+    private void DrawDisplayOverlay()
+    {
+        if (m_State != DigitronState.PlacedClosed || !m_Runtime.IsPoweredOn || m_TargetCamera == null)
+        {
+            return;
+        }
+
+        var text = m_Runtime.DisplayText;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        var anchor = m_DisplayAnchor != null ? m_DisplayAnchor : m_ModelInstance.transform;
+        var center = anchor.position;
+        var right = anchor.right * Mathf.Max(m_DisplayWorldSize.x * 0.52f, 0.08f);
+        var up = anchor.up * Mathf.Max(m_DisplayWorldSize.y * 0.62f, 0.03f);
+
+        var bl = m_TargetCamera.WorldToScreenPoint(center - right - up);
+        var tr = m_TargetCamera.WorldToScreenPoint(center + right + up);
+        if (bl.z <= 0f || tr.z <= 0f)
+        {
+            return;
+        }
+
+        var xMin = Mathf.Min(bl.x, tr.x);
+        var xMax = Mathf.Max(bl.x, tr.x);
+        var yMin = Mathf.Min(bl.y, tr.y);
+        var yMax = Mathf.Max(bl.y, tr.y);
+        var rect = new Rect(
+            xMin,
+            Screen.height - yMax,
+            Mathf.Max(40f, xMax - xMin),
+            Mathf.Max(16f, yMax - yMin));
+        rect.x -= rect.width * 0.26f;
+        rect.y -= rect.height * 1.35f;
+
+        var baseSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 1.05f), 18, 56);
+        m_DisplayStyle.fontSize = baseSize;
+
+        var shadowStyle = new GUIStyle(m_DisplayStyle);
+        shadowStyle.normal.textColor = new Color(0f, 0f, 0f, 0.55f);
+        GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, shadowStyle);
+        GUI.Label(rect, text, m_DisplayStyle);
     }
 
     private void ToggleOpenState()
@@ -609,10 +664,22 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             m_OpenAnimationClip = m_ExplicitOpenAnimationClip;
             m_ClosedPoseClip = m_ExplicitOpenAnimationClip;
-            m_ClosedPoseTime = 0f;
-            m_OpenStartTime = 0f;
-            m_OpenEndTime = m_ExplicitOpenAnimationClip.length;
-            Debug.Log($"[Digitron] Open animation source: Explicit clip '{m_ExplicitOpenAnimationClip.name}'");
+            var expectedSegmentDuration = (KOpenEndFrame - KOpenStartFrame) / KTakeFrameRate;
+            // If explicit clip is already a trimmed open segment (100-150), closed pose is at t=0.
+            // If it's a full take, use 100-150 window.
+            if (m_ExplicitOpenAnimationClip.length <= (expectedSegmentDuration + 0.2f))
+            {
+                m_ClosedPoseTime = 0f;
+                m_OpenStartTime = 0f;
+                m_OpenEndTime = m_ExplicitOpenAnimationClip.length;
+            }
+            else
+            {
+                m_ClosedPoseTime = Mathf.Min(KClosedPoseFrame / KTakeFrameRate, m_ExplicitOpenAnimationClip.length);
+                m_OpenStartTime = KOpenStartFrame / KTakeFrameRate;
+                m_OpenEndTime = Mathf.Min(KOpenEndFrame / KTakeFrameRate, m_ExplicitOpenAnimationClip.length);
+            }
+            Debug.Log($"[Digitron] Open animation source: Explicit clip '{m_ExplicitOpenAnimationClip.name}' [{m_OpenStartTime:F2}-{m_OpenEndTime:F2}], closed={m_ClosedPoseTime:F2}");
             EnsureLegacyAnimationComponent();
             return;
         }
@@ -1126,56 +1193,40 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void EnsureDisplayText()
     {
-        if (m_ModelDisplayTextMesh != null)
+        // Always use runtime-generated display TextMesh for consistent visibility
+        // across template/prefab variants.
+        if (m_DisplayAnchor == null)
         {
-            m_DisplayText = m_ModelDisplayTextMesh;
-            // Reposition TextPlus001 to the correct display window location within plocica_01B
-            if (m_DisplaySurface != null)
-            {
-                m_DisplayText.transform.SetParent(m_DisplaySurface, false);
-                m_DisplayText.transform.localPosition = new Vector3(-0.251f, 0.041f, 0.031f);
-                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
-                m_DisplayText.transform.localScale = Vector3.one;
-            }
+            return;
+        }
+
+        if (m_DisplayText == null)
+        {
+            var textObject = new GameObject("Digitron Display Text");
+            textObject.transform.SetParent(transform, false);
+            m_DisplayText = textObject.AddComponent<TextMesh>();
+            var renderer = m_DisplayText.GetComponent<Renderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sortingOrder = 50;
+        }
+
+        if (m_DisplaySurface != null)
+        {
+            // Parent to display board so text tracks it during animation.
+            m_DisplayText.transform.SetParent(m_DisplaySurface, false);
+            m_DisplayText.transform.localPosition = KDisplayLocalTextPosition;
+            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
+            m_DisplayText.transform.localScale = Vector3.one;
+            m_DisplayText.characterSize = KDisplayCharacterSize;
         }
         else
         {
-            if (m_DisplayAnchor == null)
-            {
-                return;
-            }
-
-            if (m_DisplayText == null)
-            {
-                var textObject = new GameObject("Digitron Display Text");
-                textObject.transform.SetParent(transform, false);
-                m_DisplayText = textObject.AddComponent<TextMesh>();
-                var renderer = m_DisplayText.GetComponent<Renderer>();
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                renderer.receiveShadows = false;
-                renderer.sortingOrder = 50;
-            }
-
-            if (m_DisplaySurface != null)
-            {
-                // Parent to display board so text tracks it during animation.
-                // Use world-space position/rotation so the text faces camera
-                // regardless of plocica_01B's own tilt (X:105 in FBX).
-                // Local position within plocica_01B that lands on the display window
-                // (read from inspector after manual placement)
-                m_DisplayText.transform.SetParent(m_DisplaySurface, false);
-                m_DisplayText.transform.localPosition = new Vector3(-0.251f, 0.041f, 0.031f);
-                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
-                m_DisplayText.transform.localScale = Vector3.one;
-                m_DisplayText.characterSize = 0.0052f;
-            }
-            else
-            {
-                m_DisplayText.transform.SetParent(transform, false);
-                m_DisplayText.transform.localPosition = new Vector3(-0.176f, 0.398f, -0.046f);
-                m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
-                m_DisplayText.transform.localScale = Vector3.one;
-            }
+            m_DisplayText.transform.SetParent(transform, false);
+            m_DisplayText.transform.localPosition = new Vector3(-0.176f, 0.398f, -0.046f);
+            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
+            m_DisplayText.transform.localScale = Vector3.one;
+            m_DisplayText.characterSize = KDisplayCharacterSize;
         }
 
         if (m_DisplayFont == null)
@@ -1189,12 +1240,9 @@ public class DigitronCalculatorController : MonoBehaviour
 
         m_DisplayText.anchor = TextAnchor.MiddleRight;
         m_DisplayText.alignment = TextAlignment.Right;
-        m_DisplayText.fontSize = 128;
-        if (m_DisplaySurface == null)
-        {
-            m_DisplayText.characterSize = 0.0052f;
-        }
-        m_DisplayText.color = new Color(1f, 0.08f, 0.02f, 1f);
+        m_DisplayText.fontSize = 220;
+        m_DisplayText.characterSize = KDisplayCharacterSize;
+        m_DisplayText.color = new Color(0.92f, 0.22f, 0.12f, 1f);
 
         if (m_DisplayFont != null)
         {
@@ -1211,14 +1259,16 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_DisplayText == null) return;
         var r = m_DisplayText.GetComponent<MeshRenderer>();
         if (r == null) return;
-        // GUI/Text Shader correctly renders TextMesh vertex colors (white glyph on transparent).
-        var shader = Shader.Find("GUI/Text Shader");
-        if (shader == null) return;
-        var tex = r.sharedMaterial != null ? r.sharedMaterial.mainTexture : null;
-        var mat = new Material(shader);
-        if (tex != null) mat.mainTexture = tex;
+
+        var baseMat = r.sharedMaterial;
+        if (baseMat == null) return;
+
+        var mat = new Material(baseMat);
         mat.color = m_DisplayText.color;
-        mat.renderQueue = 3000;
+        mat.renderQueue = 4000;
+        if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
+        if (mat.HasProperty("_Cull")) mat.SetInt("_Cull", (int)CullMode.Off);
+        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)CompareFunction.Always);
         r.material = mat;
     }
 
@@ -1239,12 +1289,23 @@ public class DigitronCalculatorController : MonoBehaviour
             if (m_HotspotAnchors.ContainsKey(hotspot.Id) && m_HotspotAnchors[hotspot.Id] != null)
                 continue;
 
-            // Special case: display hotspot anchors directly to the known display surface
+            // Special case: display hotspot anchors to the BOUNDS CENTER of the display renderer.
             if (hotspot.Id == "display" && m_ModelDisplayTextTransform != null)
             {
                 var dispAnchor = new GameObject($"Hotspot Anchor {hotspot.Id}");
                 dispAnchor.transform.SetParent(m_ModelDisplayTextTransform, false);
-                dispAnchor.transform.localPosition = Vector3.zero;
+                // Use the renderer bounds centre so the line points to the middle of the display,
+                // not to the mesh pivot which may be off-centre.
+                if (m_ModelDisplayTextRenderer != null && m_ModelDisplayTextRenderer.bounds.size.magnitude > 0.0001f)
+                {
+                    var localCenter = m_ModelDisplayTextTransform.InverseTransformPoint(
+                        m_ModelDisplayTextRenderer.bounds.center);
+                    dispAnchor.transform.localPosition = localCenter;
+                }
+                else
+                {
+                    dispAnchor.transform.localPosition = Vector3.zero;
+                }
                 m_HotspotAnchors[hotspot.Id] = dispAnchor.transform;
                 continue;
             }
@@ -1375,14 +1436,9 @@ public class DigitronCalculatorController : MonoBehaviour
             renderer.enabled = false;
             return;
         }
-        if (m_DisplayAnchor == null)
-        {
-            renderer.enabled = m_Runtime.IsPoweredOn;
-            return;
-        }
-        var toCamera = (m_TargetCamera.transform.position - m_DisplayAnchor.position).normalized;
-        var isFacing = Vector3.Dot(toCamera, m_DisplayAnchor.forward) > 0f;
-        renderer.enabled = isFacing && m_Runtime.IsPoweredOn;
+        // Keep display stable/visible in closed state regardless of anchor forward direction.
+        // Different template/prefab paths can flip local forward and make dot-product culling hide text.
+        renderer.enabled = m_Runtime.IsPoweredOn;
     }
 
     private void ResetCalculatorRuntime()
@@ -1705,9 +1761,24 @@ public class DigitronCalculatorController : MonoBehaviour
         // regardless of where the mesh is positioned in the scene.
         if (best.gameObject.GetComponent<DigitronKeyHitTarget>() == null)
         {
-            var col = best.gameObject.GetComponent<BoxCollider>() ?? best.gameObject.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.12f, 0.08f, 0.12f);
-            col.center = Vector3.zero;
+            BoxCollider col = null;
+            try
+            {
+                col = best.gameObject.GetComponent<BoxCollider>();
+                if (!col)
+                {
+                    col = best.gameObject.AddComponent<BoxCollider>();
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Digitron] Failed to add BoxCollider on power switch '{best.gameObject.name}': {e.Message}");
+            }
+            if (col)
+            {
+                col.size = new Vector3(0.12f, 0.08f, 0.12f);
+                col.center = Vector3.zero;
+            }
             var switchTarget = best.gameObject.AddComponent<DigitronKeyHitTarget>();
             switchTarget.Initialize(this, DigitronKeyId.Power);
             // Do NOT add to m_KeyTargets — the switch stays visible in all calculator states.
@@ -1832,6 +1903,59 @@ public class DigitronCalculatorController : MonoBehaviour
             kv.Value?.SetSelected(kv.Key == m_SelectedHotspotId);
     }
 
+    private void SwapBaterija()
+    {
+        if (m_BaterijaPrefab == null || m_ModelInstance == null) return;
+
+        // Get mesh and materials from the assigned prefab (baterija.fbx)
+        var srcMf = m_BaterijaPrefab.GetComponentInChildren<MeshFilter>(true);
+        var srcMr = m_BaterijaPrefab.GetComponentInChildren<MeshRenderer>(true);
+        if (srcMf == null || srcMf.sharedMesh == null) return;
+
+        var newMesh = srcMf.sharedMesh;
+        var newMats = srcMr != null ? srcMr.sharedMaterials : null;
+
+        // Flip label texture horizontally on each material (once at runtime)
+        if (newMats != null)
+        {
+            foreach (var mat in newMats)
+            {
+                if (mat == null) continue;
+                // Only flip if not already flipped (scale X = -1)
+                if (Mathf.Approximately(mat.mainTextureScale.x, 1f))
+                {
+                    mat.mainTextureScale  = new Vector2(-1f, 1f);
+                    mat.mainTextureOffset = new Vector2(1f, 0f);
+                }
+            }
+        }
+
+        // Rotation map: name → desired localEulerAngles for the new mesh
+        var rotMap = new Dictionary<string, Vector3>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            { "baterija_01", m_BatRot01 },
+            { "baterija_02", m_BatRot02 },
+            { "baterija_03", m_BatRot03 },
+            { "baterija_04", m_BatRot04 },
+        };
+
+        // Replace mesh+materials and fix rotation on every baterija_0X in the model
+        foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+        {
+            if (!child.name.ToLowerInvariant().StartsWith("baterija")) continue;
+
+            var mf = child.GetComponent<MeshFilter>();
+            var mr = child.GetComponent<MeshRenderer>();
+
+            if (mf != null) mf.sharedMesh = newMesh;
+            if (mr != null && newMats != null && newMats.Length > 0)
+                mr.sharedMaterials = newMats;
+
+            if (rotMap.TryGetValue(child.name, out var rot))
+                child.localEulerAngles = rot;
+        }
+    }
+
     private void ApplyHotspotHighlight(string selectedId)
     {
         if (m_ModelInstance == null) return;
@@ -1890,8 +2014,8 @@ public class DigitronCalculatorController : MonoBehaviour
             }
             // Apply ghost colour: blend original toward light-gray so dark/textureless
             // objects remain visible rather than disappearing against a light background.
-            const float kAlpha  = 0.30f;
-            const float kWhite  = 0.55f; // how much to shift toward light-gray
+            const float kAlpha  = 0.15f;
+            const float kWhite  = 0.45f; // how much to shift toward light-gray
             if (inst.HasProperty("_Color"))
             {
                 var c = inst.GetColor("_Color");
@@ -2065,7 +2189,7 @@ public class DigitronCalculatorController : MonoBehaviour
         m_DisplayStyle.alignment = TextAnchor.MiddleRight;
         m_DisplayStyle.fontSize  = 24;
         m_DisplayStyle.fontStyle = FontStyle.Bold;
-        m_DisplayStyle.normal.textColor = new Color(1f, 0.08f, 0.02f, 1f);
+        m_DisplayStyle.normal.textColor = new Color(0.92f, 0.22f, 0.12f, 0.95f);
         var displayFont = Resources.Load<Font>("digital-7 (mono)");
 #if UNITY_EDITOR
         if (displayFont == null)
@@ -2074,3 +2198,4 @@ public class DigitronCalculatorController : MonoBehaviour
         if (displayFont != null) m_DisplayStyle.font = displayFont;
     }
 }
+

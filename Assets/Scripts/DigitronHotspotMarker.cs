@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class DigitronHotspotMarker : MonoBehaviour
 {
+    private const float KBackgroundScaleMultiplier = 1.6f; // +60% only for label background
     private DigitronCalculatorController m_Controller;
     private string m_HotspotId;
     private Renderer m_Renderer;
@@ -17,6 +18,10 @@ public class DigitronHotspotMarker : MonoBehaviour
     private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
     private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 1f);
     private static Texture2D s_WhiteTexture;
+    // Cache fitted background sizes per hotspot ID so repeated open/close cycles
+    // don't cause the background to drift in size.
+    private static readonly System.Collections.Generic.Dictionary<string, Vector2> s_FittedBgScales =
+        new System.Collections.Generic.Dictionary<string, Vector2>();
 
     public void Initialize(DigitronCalculatorController controller, string hotspotId, string label, Texture2D backgroundTexture = null)
     {
@@ -148,33 +153,51 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private System.Collections.IEnumerator FitBackgroundToText()
     {
-        var textRenderer = m_LabelTextMesh?.GetComponent<MeshRenderer>();
-        if (textRenderer == null || m_BackgroundTransform == null) yield break;
+        if (m_BackgroundTransform == null) yield break;
+
+        // If this hotspot was already fitted in a previous build, reuse the cached
+        // size immediately — prevents size drift across open/close cycles.
+        if (!string.IsNullOrEmpty(m_HotspotId) && s_FittedBgScales.TryGetValue(m_HotspotId, out var cached))
+        {
+            m_BackgroundTransform.localScale = new Vector3(cached.x, cached.y, m_BackgroundTransform.localScale.z);
+            yield break;
+        }
+
+        // Use LOCAL mesh bounds — rotation-independent, unaffected by camera angle.
+        var meshFilter = m_LabelTextMesh?.GetComponent<MeshFilter>();
+        if (meshFilter == null) yield break;
 
         // Wait up to 10 frames for Unity to build the TextMesh geometry.
         for (var i = 0; i < 10; i++)
         {
             yield return null;
-            if (textRenderer.bounds.size.magnitude > 0.0001f) break;
+            if (meshFilter.mesh != null && meshFilter.mesh.bounds.size.magnitude > 0.0001f) break;
         }
 
-        if (textRenderer.bounds.size.magnitude < 0.0001f) yield break;
+        if (meshFilter.mesh == null || meshFilter.mesh.bounds.size.magnitude < 0.0001f) yield break;
 
-        // Use actual world-space text bounds to size the background precisely.
-        var wb = textRenderer.bounds;
-        var padX = wb.size.x * 0.18f;
-        var padY = wb.size.y * 0.35f;
+        // Local bounds × text object's lossy scale = world size along each axis.
+        var lb = meshFilter.mesh.bounds;
+        var ls = m_LabelTextMesh.transform.lossyScale;
+        var worldW = lb.size.x * Mathf.Abs(ls.x);
+        var worldH = lb.size.y * Mathf.Abs(ls.y);
+
+        var padX = worldW * 0.18f;
+        var padY = worldH * 0.35f;
 
         var parentScaleX = m_BackgroundTransform.parent != null ? m_BackgroundTransform.parent.lossyScale.x : 1f;
         var parentScaleY = m_BackgroundTransform.parent != null ? m_BackgroundTransform.parent.lossyScale.y : 1f;
 
         if (Mathf.Abs(parentScaleX) < 0.0001f || Mathf.Abs(parentScaleY) < 0.0001f) yield break;
 
-        m_BackgroundTransform.localScale = new Vector3(
-            (wb.size.x + padX * 2f) / parentScaleX,
-            (wb.size.y + padY * 2f) / parentScaleY,
-            m_BackgroundTransform.localScale.z
-        );
+        var scaleX = ((worldW + padX * 2f) / parentScaleX) * KBackgroundScaleMultiplier;
+        var scaleY = ((worldH + padY * 2f) / parentScaleY) * KBackgroundScaleMultiplier;
+
+        m_BackgroundTransform.localScale = new Vector3(scaleX, scaleY, m_BackgroundTransform.localScale.z);
+
+        // Cache so subsequent rebuilds reuse this size without recalculating.
+        if (!string.IsNullOrEmpty(m_HotspotId))
+            s_FittedBgScales[m_HotspotId] = new Vector2(scaleX, scaleY);
     }
 
     private static Texture2D GetWhiteTexture()
@@ -188,8 +211,7 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private static Material CreateOverlayColorMaterial(Color color)
     {
-        var shader = Shader.Find("GUI/Text Shader")
-            ?? Shader.Find("Sprites/Default")
+        var shader = Shader.Find("Sprites/Default")
             ?? Shader.Find("Universal Render Pipeline/Unlit")
             ?? Shader.Find("Unlit/Color");
         if (shader == null) return null;
@@ -197,14 +219,14 @@ public class DigitronHotspotMarker : MonoBehaviour
         mat.SetColor("_Color", color);
         mat.SetColor("_BaseColor", color);
         mat.SetTexture("_MainTex", GetWhiteTexture());
-        mat.renderQueue = 5000;
+        mat.renderQueue = 3000;
+        if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
         return mat;
     }
 
     private static Material CreateOverlayTextureMaterial(Texture2D texture)
     {
-        var shader = Shader.Find("GUI/Text Shader")
-            ?? Shader.Find("Sprites/Default")
+        var shader = Shader.Find("Sprites/Default")
             ?? Shader.Find("Universal Render Pipeline/Unlit")
             ?? Shader.Find("Unlit/Color");
         if (shader == null) return null;
@@ -212,19 +234,22 @@ public class DigitronHotspotMarker : MonoBehaviour
         mat.SetColor("_Color", Color.white);
         mat.SetColor("_BaseColor", Color.white);
         mat.SetTexture("_MainTex", texture);
-        mat.renderQueue = 5000;
+        mat.renderQueue = 3000;
+        if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
         return mat;
     }
 
     private static Material CreateOverlayTextMaterial(Material source, Color color)
     {
-        var shader = Shader.Find("GUI/Text Shader");
+        var shader = Shader.Find("Sprites/Default")
+            ?? Shader.Find("GUI/Text Shader");
         if (shader == null) return source;
         var material = new Material(shader);
         material.SetColor("_Color", color);
         var mainTex = source != null ? source.mainTexture : null;
         material.SetTexture("_MainTex", mainTex != null ? mainTex : GetWhiteTexture());
-        material.renderQueue = 5000;
+        material.renderQueue = 3001;
+        if (material.HasProperty("_ZWrite")) material.SetInt("_ZWrite", 0);
         return material;
     }
 

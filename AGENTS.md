@@ -43,14 +43,15 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
 - Model source-of-truth (aktivni):
   - Scene-assigned prefab na `MainController`:
     `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
-- WebGL runtime model source-of-truth:
-  - prvo klonira scene template `Digitron Editor Preview` (isti setup koji se vidi u Editor Play modu)
+- Runtime model source-of-truth (WebGL + Editor Play):
+  - prvo koristi scene template `Digitron Editor Preview` (klon/instanca u runtimeu)
   - tek ako to nije dostupno pada natrag na `MainController.m_DigitronPrefab`
 - Open animacija source-of-truth:
   - `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/CalculatorOpen.anim`
   - klip je serijaliziran na `MainController` kao runtime referenca i prosljeđuje se `DigitronCalculatorController` umjesto editor-only `AssetDatabase` lookupa
 - Runtime load put (trenutno):
   - scene template `Digitron Editor Preview` ili `MainController.m_DigitronPrefab`
+  - `Digitron Editor Preview` u sceni je postavljen kao neaktivan template (ne sluzi kao stalno vidljiv editor model)
 - Napomena za model import:
   - scene preview instanca trenutno nosi bitne active-state overrideove dobrog modela; zato je ne treba brisati iz scene bez zamjene istim prefab variant setupom
 - Editor fallback model load put:
