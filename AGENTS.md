@@ -42,7 +42,7 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
   - `ProjectSettings/EditorBuildSettings.asset` -> `Assets/Scenes/Digitron AR Base 3.unity`
 - Model source-of-truth (aktivni):
   - Scene-assigned prefab na `MainController`:
-    `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
+    `Assets/Resources/Digitron/db801-novo-odvojene-tipke.fbx` (guid `5af528a9cfea01e49bfb8f0c0993d6e7`)
 - Runtime model source-of-truth (WebGL + Editor Play):
   - prvo koristi scene template `Digitron Editor Preview` (klon/instanca u runtimeu)
   - tek ako to nije dostupno pada natrag na `MainController.m_DigitronPrefab`
@@ -55,10 +55,18 @@ Gradimo Unity WebAR iskustvo za Digitron DB-800/DB-801 koristeci Imagine WebAR p
 - Napomena za model import:
   - scene preview instanca trenutno nosi bitne active-state overrideove dobrog modela; zato je ne treba brisati iz scene bez zamjene istim prefab variant setupom
 - Editor fallback model load put:
-  - `Assets/Models/DIGITRON stara animacija/NOVI-OBJEKT/db801-novo-odvojene-tipke.fbx`
+  - `Assets/Resources/Digitron/db801-novo-odvojene-tipke.fbx`
 - Web runtime mode:
   - mobile: puni WebAR flow (kamera, placement, reset, otvori + hotspot)
   - desktop: auto desktop preview bez kamere, s rotacijom i zoom kontrolama; Unity se pokrece neovisno o `wTracker` inicijalizaciji
+  - mobile spawn rotacija je runtime-forced na `X=180, Z=180`, uz automatski fallback korekciju ako model ostane naglavacke
+  - mobile pinch zoom-out je blago prosiren kroz `PinchToScale.minScale` u sceni
+- Hotspot vizualna pravila (stabilizirano):
+  - odabrani hotspot dio ostaje potpuno vidljiv; svi ostali dijelovi se boje u cvrstu zutu (podloga stil) radi jasnog fokusa
+  - hotspot naslov se renderira u jednom redu, s vecom podlogom od teksta
+  - hotspot naslov i podloga koriste depth test (bez probijanja kroz 3D model)
+- Info panel pravilo:
+  - podloga info boxa je posvijetljena dodatnim 50% white overlay slojem preko papir teksture
 - GitHub Pages preview flow (novo):
   - deploy source: `docs/` (kopija lokalnog Unity `Build/`)
   - sync skripta: `tools/sync-pages-build.ps1`
@@ -97,3 +105,43 @@ Claude preuzima fine tuning i stabilizaciju, ne novi redesign:
 
 ## 10) Pravilo azuriranja ovog dokumenta
 Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source), odmah azurirati `AGENTS.md` u istoj promjeni.
+
+## 11) Status display brojeva (handoff)
+- Trenutno stanje:
+  - brojke se ponovno prikazuju u runtimeu (Editor + Build)
+  - računanje radi (`DigitronRuntime` i key input logovi pokazuju ispravan `display=...`)
+  - brojke se ne prikazuju sa stražnje strane (front-side uvjet aktivan)
+  - poravnanje je desno i punjenje ide ulijevo (novi broj ulazi s lijeve strane)
+  - boja brojeva je crvena
+- Implementacija je u:
+  - `Assets/Scripts/DigitronCalculatorController.cs`
+  - ključne metode: `EnsureDisplayAnchor()`, `EnsureDisplayText()`, `UpdateDisplayText()`, `UpdateDisplayTextVisibility()`
+  - modelski `TextMesh` (`TextPlus`) se koristi kao primarni display path
+  - pozicija se pokušava zaključati na `plocica_01b/plocica_01` bounds (display surface)
+- Status:
+  - pozicija brojeva je stabilizirana (brojke sjedaju u svjetliji display prozor)
+  - vidljivost je stabilizirana (brojke se ne prikazuju sa straznje strane i ne probijaju kroz kuciste iz gornjih kutova)
+  - `digital-7 (mono)` je ujednacen u Editor + WebGL buildu
+- Ako se ponovno razbije:
+  - pogledati sekciju `12) BRZI RESTORE - display brojke i font`
+
+## 12) BRZI RESTORE - display brojke i font (stabilno stanje 2026-03-30)
+- Glavni file:
+  - `Assets/Scripts/DigitronCalculatorController.cs`
+- Potvrdene vrijednosti za dobar polozaj brojki:
+  - `KDisplaySurfaceRightFactor = 0.36f`
+  - `KDisplaySurfaceUpFactor = 0.62f`
+  - `KGeneratedDisplayTextLocalPosition = new Vector3(-0.061f, 0.151f, -0.001f)`
+- Gdje se primjenjuje pozicija:
+  - metoda `EnsureDisplayText()`
+  - runtime-generated `Digitron Display Text` koristi `KGeneratedDisplayTextLocalPosition`
+  - model-surface pozicioniranje koristi `KDisplaySurfaceRightFactor` i `KDisplaySurfaceUpFactor`
+- Font koji mora biti isti u Editor + Build:
+  - konstanta: `KDisplayFontResourcesPath = "digital-7 (mono)"`
+  - ucitavanje ide kroz `EnsureDisplayFont()`
+  - prvo: `Resources.Load<Font>(KDisplayFontResourcesPath)` (radi u buildu)
+  - fallback samo u editoru: `AssetDatabase.LoadAssetAtPath<Font>("Assets/Models/digital-7 (mono).ttf")`
+  - GUI style takoder koristi isti `KDisplayFontResourcesPath`
+- Brza provjera nakon promjene:
+  - u Play modu upisi vise znamenki (`555555...`) i provjeri da sjede u svjetlijem display pravokutniku
+  - provjeri da je font `digital-7 (mono)` i u Editoru i u WebGL buildu

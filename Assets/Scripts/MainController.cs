@@ -26,13 +26,14 @@ public class MainController : MonoBehaviour
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
     private Vector3 m_WebDesktopSpawnLocalEulerAngles = new Vector3(0f, 180f, 0f);
-    private Vector3 m_WebMobileSpawnLocalEulerAngles  = new Vector3(0f, 0f, 180f);
+    private Vector3 m_WebMobileSpawnLocalEulerAngles  = new Vector3(180f, 180f, 180f);
     private Vector3 m_EditorCameraOffset = new Vector3(-0.08f, 0.12f, -0.82f);
     private Vector3 m_EditorCameraLookOffset = new Vector3(0f, 0.12f, 0f);
     private float m_EditorCameraDistancePadding = 1.35f;
     private float m_EditorPreviewScaleMultiplier = 1.3f;
     private bool m_WebDesktopPreviewInitialized;
     private bool m_MobileReady;
+    private Coroutine m_MobileRotationEnforceRoutine;
 
     private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
     private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
@@ -171,6 +172,7 @@ public class MainController : MonoBehaviour
             m_DigitronController.transform.SetParent(m_DigitronParent, false);
             m_DigitronController.transform.localPosition = GetDigitronSpawnLocalPosition();
             m_DigitronController.transform.localRotation = GetDigitronSpawnLocalRotation();
+            EnforceMobileSpawnRotation(m_DigitronController.transform, scheduleFollowup: true);
             m_DigitronController.ResetDigitronState();
             m_DigitronController.gameObject.SetActive(true);
             m_DigitronController.HandlePlaced(GetActiveRuntimeCamera());
@@ -204,6 +206,7 @@ public class MainController : MonoBehaviour
         digitronRoot.transform.SetParent(m_DigitronParent, false);
         digitronRoot.transform.localPosition = GetDigitronSpawnLocalPosition();
         digitronRoot.transform.localRotation = GetDigitronSpawnLocalRotation();
+        EnforceMobileSpawnRotation(digitronRoot.transform, scheduleFollowup: true);
 
         if (!modelInstance)
         {
@@ -360,6 +363,64 @@ public class MainController : MonoBehaviour
 
         return Camera.main;
     }
+
+    private void EnforceMobileSpawnRotation(Transform target, bool scheduleFollowup)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (target == null || IsWebDesktopPreview())
+        {
+            return;
+        }
+
+        var expectedPrimary = Quaternion.Euler(m_WebMobileSpawnLocalEulerAngles);
+        var expectedFallback = expectedPrimary * Quaternion.Euler(180f, 0f, 0f);
+        target.localRotation = expectedPrimary;
+        LogWebRuntime($"Mobile spawn rotation enforced to X={m_WebMobileSpawnLocalEulerAngles.x:0.##}, Y={m_WebMobileSpawnLocalEulerAngles.y:0.##}, Z={m_WebMobileSpawnLocalEulerAngles.z:0.##}");
+
+        if (!scheduleFollowup)
+        {
+            return;
+        }
+
+        if (m_MobileRotationEnforceRoutine != null)
+        {
+            StopCoroutine(m_MobileRotationEnforceRoutine);
+        }
+
+        m_MobileRotationEnforceRoutine = StartCoroutine(EnforceMobileSpawnRotationRoutine(target, expectedPrimary, expectedFallback));
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private IEnumerator EnforceMobileSpawnRotationRoutine(Transform target, Quaternion expectedPrimary, Quaternion expectedFallback)
+    {
+        var usingFallback = false;
+        for (var i = 0; i < 8; i++)
+        {
+            yield return null;
+            if (target == null || IsWebDesktopPreview())
+            {
+                m_MobileRotationEnforceRoutine = null;
+                yield break;
+            }
+
+            var cam = GetActiveRuntimeCamera();
+            if (!usingFallback && cam != null)
+            {
+                var upsideDown = Vector3.Dot(target.up, cam.transform.up) < 0f;
+                if (upsideDown)
+                {
+                    usingFallback = true;
+                    LogWebRuntime("Mobile orientation fallback activated: applying X180 correction.");
+                }
+            }
+
+            target.localRotation = usingFallback ? expectedFallback : expectedPrimary;
+        }
+
+        m_MobileRotationEnforceRoutine = null;
+    }
+#endif
 
     private void CacheExistingDigitronController()
     {

@@ -64,9 +64,20 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KLampScale = 0.028f;
     private const float KDisplayMaskDepthOffset = 0.006f;
     private const float KDisplayCharacterSize = 0.032f;
-    private static readonly Vector3 KDisplayLocalTextPosition = new Vector3(-0.251f, 0.048f, 0.048f);
+    private const float KDisplayCharacterSizeMin = 0.028f;
+    private const float KDisplayCharacterSizeMax = 1.200f;
+    private const float KDisplayTextForwardOffset = 0.0018f;
+    private static readonly Vector3 KDisplayLocalTextPosition = new Vector3(-0.251f, 0.066f, 0.0015f);
+    private const float KDisplayFacingThreshold = 0.22f;
+    private const float KDisplayWindowWidthFactor = 0.52f;
+    private const float KDisplayWindowHeightFactor = 0.24f;
+    private const float KDisplaySurfaceRightFactor = 0.36f;
+    private const float KDisplaySurfaceUpFactor = 0.62f;
+    private const float KDisplaySurfaceForwardOffset = 0.0008f;
+    private static readonly Vector3 KGeneratedDisplayTextLocalPosition = new Vector3(-0.061f, 0.151f, -0.001f);
     private const float KMinimumProjectedKeySize = 10f;
     private const string KDisplayFontAssetPath = "Assets/Models/digital-7 (mono).ttf";
+    private const string KDisplayFontResourcesPath = "digital-7 (mono)";
     private const float KKeypadMinX = 0.205f;
     private const float KKeypadMaxX = 0.892f;
     private const float KKeypadMinY = 0.156f;
@@ -74,7 +85,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private static readonly HotspotData[] Hotspots =
     {
-        // MarkerLocalDir: offset direction in model-local space from anchor mesh centre → label quad position
+        // MarkerLocalDir: offset direction in model-local space from anchor mesh centre Ã¢â€ â€™ label quad position
         new HotspotData { Id = "housing",   Number = 1, Title = "Ku\u0107i\u0161te",              Description = "Ku\u0107i\u0161te je \u201eoklop\u201c kalkulatora: dr\u017ei sve dijelove na mjestu i \u0161titi osjetljivu elektroniku od udaraca, pra\u0161ine i slu\u010dajnih dodira. Kod db801 ku\u0107i\u0161te ima jo\u0161 jednu zanimljivu ulogu \u2013 slu\u017eilo je i kao prostor za kratke upute korisniku. Na pole\u0111ini se, primjerice, upozorava da kalkulator najbolje radi u temperaturnom rasponu 0\u201340\u00a0\u00b0C te da ga se na hladno\u0107i mo\u017ee zagrijati tjelesnom toplinom. To je mali podsjetnik koliko je ova tehnologija tada bila nova i \u201efina\u201c, i koliko se pazilo da radi pouzdano.",  NormalizedViewportAnchor = new Vector3(0.5f,  0.55f,  0.1f),  MarkerLocalDir = new Vector3( 2.6f,  0.35f,  0.10f) },
         new HotspotData { Id = "keyboard",  Number = 2, Title = "Tipkovnica",                Description = "Tipkovnica je mjesto gdje kalkulator \u201e\u010duje\u201c korisnika. Svaka tipka \u0161alje jasnu naredbu: broj, ra\u010dunsku operaciju ili brisanje unosa. Kod starijih ure\u0111aja poput db801 tipke su mehani\u010dke, pa je bilo va\u017eno da elektronika pouzdano prepoznaje svaki pritisak \u2013 bez slu\u010dajnog duplog klika. Specijalizirani \u010dip unutar kalkulatora ima ugra\u0111ene funkcije koje poma\u017eu ba\u0161 u tome: stabilno o\u010ditavanje tipki i pretvaranje pritiska u naredbu. Rezultat je jednostavno iskustvo kori\u0161tenja, iako je unutra tehnologija za svoje vrijeme bila vrlo napredna.",                     NormalizedViewportAnchor = new Vector3(0.5f,  0.3f,  0.23f), MarkerLocalDir = new Vector3(-2.2f, -0.20f,  0.30f) },
         new HotspotData { Id = "board",     Number = 3, Title = "Elektroni\u010dka\nplo\u010da", Description = "Elektroni\u010dka plo\u010da je \u201eprometna mre\u017ea\u201c kalkulatora. Po njoj idu tanke vodljive staze koje spajaju tipkovnicu, \u010dipove, zaslon i napajanje u jednu cjelinu. Na plo\u010di se nalaze i sitni dijelovi koji poma\u017eu da sve radi stabilno: povezivanje, filtriranje i raspodjela signala. U praksi, plo\u010da je ono \u0161to omogu\u0107uje da pritisak tipke postane broj na zaslonu \u2013 brzo, tiho i bez mehani\u010dkih pokretnih dijelova osim samih tipki. Kad gledate plo\u010du izbliza, vidite otisak in\u017eenjerskog rada: sve je moralo biti to\u010dno poslo\u017eeno da bi kalkulator bio pouzdan i prenosiv.",                     NormalizedViewportAnchor = new Vector3(0.52f, 0.46f, -0.08f), MarkerLocalDir = new Vector3( 2.2f,  0.35f, -0.20f) },
@@ -104,6 +115,22 @@ public class DigitronCalculatorController : MonoBehaviour
             (KKeypadMaxY - KKeypadMinY) * height);
     }
 
+    private static string NormalizeHotspotTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return string.Empty;
+        }
+
+        var flattened = title.Replace('\n', ' ').Replace('\r', ' ');
+        while (flattened.Contains("  "))
+        {
+            flattened = flattened.Replace("  ", " ");
+        }
+
+        return flattened.Trim();
+    }
+
     private static readonly KeyLayoutData[] KeyLayouts =
     {
         new KeyLayoutData { KeyId = DigitronKeyId.F, Name = "F", NormalizedAnchor = KeypadAnchor(0.08f, 0.92f), NormalizedSize = KeypadSize(0.11f, 0.10f) },
@@ -128,7 +155,7 @@ public class DigitronCalculatorController : MonoBehaviour
         new KeyLayoutData { KeyId = DigitronKeyId.Power, Name = "ON", NormalizedAnchor = new Vector3(0.790f, 0.595f, KFrontSurfaceDepth), NormalizedSize = new Vector2(0.105f, 0.055f) },
     };
 
-    // Used for highlight/dim — all mesh objects belonging to each system
+    // Used for highlight/dim Ã¢â‚¬â€ all mesh objects belonging to each system
     private static readonly Dictionary<string, string[]> KHotspotMeshKeywords = new Dictionary<string, string[]>
     {
         { "housing",   new[] { "db801_prednja", "db801_straznja", "poklopac_straznji",
@@ -138,10 +165,10 @@ public class DigitronCalculatorController : MonoBehaviour
         { "board",     new[] { "plocica_02", "tube0", "zice_", "vijak_" } },
         { "chips",     new[] { "box0", "object001" } },
         { "batteries", new[] { "baterija" } },
-        { "display",   new[] { "plocica_01b", "textplus" } },
+        { "display",   new[] { "plocica_01b", "plocica_01", "textplus", "zaslon", "display", "screen", "staklo", "prozor" } },
     };
 
-    // Used for anchor/line-endpoint positioning only — the single most visible representative mesh
+    // Used for anchor/line-endpoint positioning only Ã¢â‚¬â€ the single most visible representative mesh
     private static readonly Dictionary<string, string[]> KHotspotAnchorKeywords = new Dictionary<string, string[]>
     {
         { "housing",  new[] { "db801_prednja" } },  // front outer plastic shell
@@ -174,9 +201,9 @@ public class DigitronCalculatorController : MonoBehaviour
     [SerializeField] private Texture2D m_TexDigitronNaslov;
     [SerializeField] private Texture2D m_TexSoloTrakica;
     [SerializeField] private Texture2D m_TexPapirPodloga;
-    // New baterija model — assign from Assets/!k/baterija.fbx in Inspector
+    // New baterija model Ã¢â‚¬â€ assign from Assets/!k/baterija.fbx in Inspector
     [SerializeField] private GameObject m_BaterijaPrefab;
-    // Local Euler rotations for baterija_01..04 — set via BaterijaSwapper tool then copy here
+    // Local Euler rotations for baterija_01..04 Ã¢â‚¬â€ set via BaterijaSwapper tool then copy here
     [SerializeField] private Vector3 m_BatRot01 = new Vector3(270f,  0f,   0f);
     [SerializeField] private Vector3 m_BatRot02 = new Vector3(  0f, 90f,  90f);
     [SerializeField] private Vector3 m_BatRot03 = new Vector3(  0f, 90f, 270f);
@@ -197,9 +224,12 @@ public class DigitronCalculatorController : MonoBehaviour
     private Transform m_DisplaySurface;
     private TextMesh m_DisplayText;
     private Font m_DisplayFont;
+    private Material m_DisplayTextMaterial;
     private Renderer m_ModelDisplayTextRenderer;
     private Transform m_ModelDisplayTextTransform;
     private TextMesh m_ModelDisplayTextMesh;
+    private bool m_HasModelDisplayBaseLocalPosition;
+    private Vector3 m_ModelDisplayBaseLocalPosition;
     private Vector2 m_DisplayWorldSize = new Vector2(0.165f, 0.048f);
     private readonly List<Renderer> m_HiddenDisplayRenderers = new List<Renderer>();
     private Coroutine m_FallbackRoutine;
@@ -210,6 +240,7 @@ public class DigitronCalculatorController : MonoBehaviour
     private Vector3 m_PowerSwitchOnLocalPosition;
     private Vector3 m_PowerSwitchOffLocalPosition;
     private AnimationClip m_ExplicitOpenAnimationClip;
+    private Vector2 m_InfoScrollPosition = Vector2.zero;
 
     public void Initialize(GameObject modelInstance, Camera targetCamera, float targetSize, AnimationClip explicitOpenAnimationClip = null)
     {
@@ -308,6 +339,7 @@ public class DigitronCalculatorController : MonoBehaviour
     {
         if (m_State != DigitronState.Opened) return;
         m_SelectedHotspotId = hotspotId;
+        m_InfoScrollPosition = Vector2.zero;
         ApplyHotspotHighlight(hotspotId);
         UpdateHotspotMarkerStates();
 #if UNITY_EDITOR
@@ -328,11 +360,16 @@ public class DigitronCalculatorController : MonoBehaviour
     public void HandleKeyPress(DigitronKeyId keyId)
     {
         if (m_State != DigitronState.PlacedClosed) return;
+        if (m_DisplayText == null)
+        {
+            EnsureDisplayAnchor();
+            EnsureDisplayText();
+        }
+
         m_Runtime.PressKey(keyId);
         RefreshCalculatorPresentation();
-#if UNITY_EDITOR
-        Debug.Log($"[Digitron] Key={keyId}, display='{m_Runtime.DisplayText}', on={m_Runtime.IsPoweredOn}");
-#endif
+        UpdateDisplayTextVisibility();
+        Debug.Log($"[Digitron] Key={keyId}, display='{m_Runtime.DisplayText}', powered={m_Runtime.IsPoweredOn}, state={m_State}");
     }
 
     public void HandlePhysicalKeyTargetPressed(DigitronKeyHitTarget keyTarget)
@@ -359,6 +396,11 @@ public class DigitronCalculatorController : MonoBehaviour
     private void Update()
     {
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
+        if (m_DisplayText != null && m_ModelDisplayTextMesh != null)
+        {
+            // Keep model display text locked to display surface every frame.
+            EnsureDisplayText();
+        }
         UpdateLampFacingCamera();
         UpdateDisplayTextVisibility();
         UpdateHotspotMarkersFacingCamera();
@@ -371,7 +413,7 @@ public class DigitronCalculatorController : MonoBehaviour
         if (!m_ModelInstance || m_State == DigitronState.Unplaced) return;
         if (!m_TargetCamera) m_TargetCamera = Camera.main;
         EnsureGuiStyles();
-        // Responsive font sizes — recalculated every frame based on screen height
+        // Responsive font sizes Ã¢â‚¬â€ recalculated every frame based on screen height
         var fs = Screen.height;
 #if UNITY_WEBGL && !UNITY_EDITOR
         var isMobile = LibraryManager.JSIsDesktopPreview() == 0;
@@ -424,13 +466,19 @@ public class DigitronCalculatorController : MonoBehaviour
         if (m_State != DigitronState.Opened || string.IsNullOrEmpty(m_SelectedHotspotId)) return;
         var hotspot = Hotspots.FirstOrDefault(entry => entry.Id == m_SelectedHotspotId);
         if (string.IsNullOrEmpty(hotspot.Id)) return;
+        var normalizedTitle = NormalizeHotspotTitle(hotspot.Title);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        var isMobile = LibraryManager.JSIsDesktopPreview() == 0;
+#else
+        var isMobile = false;
+#endif
 
-        var pad       = Screen.height * 0.018f;
+        var pad       = Screen.height * (isMobile ? 0.014f : 0.018f);
         var closeSize = Screen.height * 0.05f;
-        var lineH     = Screen.height * 0.058f;
-        var titleLineCount = hotspot.Title.Split('\n').Length;
+        var lineH     = Screen.height * (isMobile ? 0.046f : 0.058f);
+        var titleLineCount = 1;
         var titleH    = lineH * titleLineCount;
-        var panelW    = Screen.width  * 0.50f;
+        var panelW    = Screen.width  * (isMobile ? 0.86f : 0.50f);
         var descW     = panelW - pad * 2f;
 
         var descContent = new GUIContent(hotspot.Description);
@@ -443,6 +491,12 @@ public class DigitronCalculatorController : MonoBehaviour
         var margin  = Screen.height * 0.025f;
         var panelY  = Screen.height - panelH - btnH - margin * 2f;
         panelY = Mathf.Max(panelY, margin);
+        if (isMobile)
+        {
+            var maxPanelH = Screen.height * 0.64f;
+            panelH = Mathf.Min(panelH, maxPanelH);
+            panelY = Mathf.Max(Screen.height - panelH - btnH - margin * 1.1f, margin * 0.5f);
+        }
 
         var panelRect = new Rect(panelX, panelY, panelW, panelH);
         if (m_TexPapirPodloga != null)
@@ -455,65 +509,43 @@ public class DigitronCalculatorController : MonoBehaviour
             GUI.Box(panelRect, GUIContent.none, m_InfoBoxStyle);
         }
 
+        var prevColor = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, 0.5f);
+        GUI.DrawTexture(panelRect, Texture2D.whiteTexture, ScaleMode.StretchToFill, true);
+        GUI.color = prevColor;
+
         GUI.Label(new Rect(panelX + pad, panelY + pad, panelW - pad * 2f - closeSize - 4f, titleH),
-                  hotspot.Title, m_InfoTitleStyle);
+                  normalizedTitle, m_InfoTitleStyle);
 
         if (GUI.Button(new Rect(panelX + panelW - pad - closeSize, panelY + pad * 0.4f, closeSize, closeSize),
-                       "�", m_CloseButtonStyle))
+                       "X", m_CloseButtonStyle))
         {
             m_SelectedHotspotId = null;
+            m_InfoScrollPosition = Vector2.zero;
             ApplyHotspotHighlight(null);
             UpdateHotspotMarkerStates();
         }
 
-        GUI.Label(new Rect(panelX + pad, panelY + pad + titleH + pad * 0.5f, descW, descH),
-                  hotspot.Description, m_InfoDescStyle);
+        var descY = panelY + pad + titleH + pad * 0.5f;
+        var descViewportH = Mathf.Max(24f, panelH - (descY - panelY) - pad);
+        var viewRect = new Rect(panelX + pad, descY, descW, descViewportH);
+        if (isMobile && descH > descViewportH)
+        {
+            var contentRect = new Rect(0f, 0f, descW - 18f, descH + 4f);
+            m_InfoScrollPosition = GUI.BeginScrollView(viewRect, m_InfoScrollPosition, contentRect, false, true);
+            GUI.Label(new Rect(0f, 0f, contentRect.width, contentRect.height), hotspot.Description, m_InfoDescStyle);
+            GUI.EndScrollView();
+        }
+        else
+        {
+            GUI.Label(viewRect, hotspot.Description, m_InfoDescStyle);
+        }
     }
 
     private void DrawDisplayOverlay()
     {
-        if (m_State != DigitronState.PlacedClosed || !m_Runtime.IsPoweredOn || m_TargetCamera == null)
-        {
-            return;
-        }
-
-        var text = m_Runtime.DisplayText;
-        if (string.IsNullOrEmpty(text))
-        {
-            return;
-        }
-
-        var anchor = m_DisplayAnchor != null ? m_DisplayAnchor : m_ModelInstance.transform;
-        var center = anchor.position;
-        var right = anchor.right * Mathf.Max(m_DisplayWorldSize.x * 0.52f, 0.08f);
-        var up = anchor.up * Mathf.Max(m_DisplayWorldSize.y * 0.62f, 0.03f);
-
-        var bl = m_TargetCamera.WorldToScreenPoint(center - right - up);
-        var tr = m_TargetCamera.WorldToScreenPoint(center + right + up);
-        if (bl.z <= 0f || tr.z <= 0f)
-        {
-            return;
-        }
-
-        var xMin = Mathf.Min(bl.x, tr.x);
-        var xMax = Mathf.Max(bl.x, tr.x);
-        var yMin = Mathf.Min(bl.y, tr.y);
-        var yMax = Mathf.Max(bl.y, tr.y);
-        var rect = new Rect(
-            xMin,
-            Screen.height - yMax,
-            Mathf.Max(40f, xMax - xMin),
-            Mathf.Max(16f, yMax - yMin));
-        rect.x -= rect.width * 0.26f;
-        rect.y -= rect.height * 1.35f;
-
-        var baseSize = Mathf.Clamp(Mathf.RoundToInt(rect.height * 1.05f), 18, 56);
-        m_DisplayStyle.fontSize = baseSize;
-
-        var shadowStyle = new GUIStyle(m_DisplayStyle);
-        shadowStyle.normal.textColor = new Color(0f, 0f, 0f, 0.55f);
-        GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, shadowStyle);
-        GUI.Label(rect, text, m_DisplayStyle);
+        // Overlay intentionally disabled: display must be pure 3D text glued to calculator screen.
+        return;
     }
 
     private void ToggleOpenState()
@@ -1136,10 +1168,6 @@ public class DigitronCalculatorController : MonoBehaviour
                 {
                     textMesh.text = string.Empty;
                 }
-                else if (m_ModelDisplayTextRenderer != null && !m_HiddenDisplayRenderers.Contains(m_ModelDisplayTextRenderer))
-                {
-                    m_HiddenDisplayRenderers.Add(m_ModelDisplayTextRenderer);
-                }
             }
         }
 
@@ -1151,6 +1179,20 @@ public class DigitronCalculatorController : MonoBehaviour
             }
         }
 
+        // Resolve physical display surface used for precise runtime text placement.
+        if (m_DisplaySurface == null)
+        {
+            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                var n = child.name.ToLowerInvariant();
+                if (n == "plocica_01b" || n == "plocica_01")
+                {
+                    m_DisplaySurface = child;
+                    break;
+                }
+            }
+        }
+
         if (m_ModelDisplayTextRenderer != null)
         {
             var localBounds = CalculateRendererLocalBounds(m_ModelDisplayTextRenderer);
@@ -1158,17 +1200,15 @@ public class DigitronCalculatorController : MonoBehaviour
                 Mathf.Max(localBounds.size.x * 1.35f, 0.16f),
                 Mathf.Max(localBounds.size.y * 1.45f, 0.05f));
         }
-
-        // Always find the display surface — must happen before any early return
-        if (m_DisplaySurface == null)
+        else if (m_DisplaySurface != null)
         {
-            foreach (var child in m_ModelInstance.GetComponentsInChildren<Transform>(true))
+            var sr = m_DisplaySurface.GetComponent<Renderer>();
+            if (sr != null)
             {
-                if (child.name.ToLowerInvariant() == "plocica_01b")
-                {
-                    m_DisplaySurface = child;
-                    break;
-                }
+                var b = sr.bounds;
+                m_DisplayWorldSize = new Vector2(
+                    Mathf.Max(b.size.x * 0.55f, 0.16f),
+                    Mathf.Max(b.size.y * 0.34f, 0.05f));
             }
         }
 
@@ -1184,92 +1224,87 @@ public class DigitronCalculatorController : MonoBehaviour
             m_DisplayAnchor.localScale = m_ModelDisplayTextTransform.localScale;
             return;
         }
-
-        m_DisplayAnchor.SetParent(m_ModelInstance.transform, false);
-        m_DisplayAnchor.position = GetWorldPointForNormalizedAnchor(DisplayLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * 0.004f);
-        m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
+        else
+        {
+            m_DisplayAnchor.SetParent(m_ModelInstance.transform, false);
+            m_DisplayAnchor.position = GetWorldPointForNormalizedAnchor(DisplayLayout.NormalizedAnchor) + (GetFrontOffsetDirection() * 0.004f);
+            m_DisplayAnchor.rotation = m_ModelInstance.transform.rotation;
+        }
         m_DisplayAnchor.localScale = Vector3.one;
     }
 
     private void EnsureDisplayText()
     {
-        // Always use runtime-generated display TextMesh for consistent visibility
-        // across template/prefab variants.
-        if (m_DisplayAnchor == null)
+        if (m_ModelDisplayTextMesh != null)
         {
-            return;
-        }
+            m_DisplayText = m_ModelDisplayTextMesh;
+            if (m_DisplaySurface != null)
+            {
+                var sr = m_DisplaySurface.GetComponent<Renderer>();
+                if (sr != null)
+                {
+                    var b = sr.bounds;
+                    var target = b.center
+                        + (m_DisplaySurface.right * (b.size.x * KDisplaySurfaceRightFactor))
+                        + (m_DisplaySurface.up * (b.size.y * KDisplaySurfaceUpFactor))
+                        + (m_DisplaySurface.forward * KDisplaySurfaceForwardOffset);
 
-        if (m_DisplayText == null)
-        {
-            var textObject = new GameObject("Digitron Display Text");
-            textObject.transform.SetParent(transform, false);
-            m_DisplayText = textObject.AddComponent<TextMesh>();
-            var renderer = m_DisplayText.GetComponent<Renderer>();
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.sortingOrder = 50;
-        }
+                    m_DisplayText.transform.position = target;
+                    m_DisplayText.transform.rotation = m_DisplaySurface.rotation * Quaternion.Euler(0f, 180f, 0f);
+                    m_DisplayText.transform.localScale = Vector3.one;
+                }
+            }
+            else
+            {
+                if (!m_HasModelDisplayBaseLocalPosition)
+                {
+                    m_ModelDisplayBaseLocalPosition = m_DisplayText.transform.localPosition;
+                    m_HasModelDisplayBaseLocalPosition = true;
+                }
 
-        if (m_DisplaySurface != null)
-        {
-            // Parent to display board so text tracks it during animation.
-            m_DisplayText.transform.SetParent(m_DisplaySurface, false);
-            m_DisplayText.transform.localPosition = KDisplayLocalTextPosition;
-            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
-            m_DisplayText.transform.localScale = Vector3.one;
-            m_DisplayText.characterSize = KDisplayCharacterSize;
+                // Fallback when display surface isn't available.
+                m_DisplayText.transform.localPosition = m_ModelDisplayBaseLocalPosition + new Vector3(0.16f, 0.18f, 0f);
+            }
         }
         else
         {
-            m_DisplayText.transform.SetParent(transform, false);
-            m_DisplayText.transform.localPosition = new Vector3(-0.176f, 0.398f, -0.046f);
-            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, -180f, 0f);
+            if (m_DisplayAnchor == null)
+            {
+                return;
+            }
+
+            if (m_DisplayText == null)
+            {
+                var textObject = new GameObject("Digitron Display Text");
+                textObject.transform.SetParent(m_DisplayAnchor, false);
+                m_DisplayText = textObject.AddComponent<TextMesh>();
+                var renderer = m_DisplayText.GetComponent<Renderer>();
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                renderer.sortingOrder = 50;
+            }
+
+            m_DisplayText.transform.localPosition = KGeneratedDisplayTextLocalPosition;
+            m_DisplayText.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             m_DisplayText.transform.localScale = Vector3.one;
-            m_DisplayText.characterSize = KDisplayCharacterSize;
         }
 
-        if (m_DisplayFont == null)
-        {
-            m_DisplayFont = Resources.Load<Font>("digital-7 (mono)");
-#if UNITY_EDITOR
-            if (m_DisplayFont == null)
-                m_DisplayFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
-#endif
-        }
+        EnsureDisplayFont();
 
+        // Display fills from right to left: least-significant digit remains at the right edge.
         m_DisplayText.anchor = TextAnchor.MiddleRight;
         m_DisplayText.alignment = TextAlignment.Right;
-        m_DisplayText.fontSize = 220;
-        m_DisplayText.characterSize = KDisplayCharacterSize;
-        m_DisplayText.color = new Color(0.92f, 0.22f, 0.12f, 1f);
+        m_DisplayText.fontSize = 180;
+        m_DisplayText.characterSize = 0.0055f;
+        m_DisplayText.color = new Color(1f, 0.20f, 0.12f, 1f);
 
         if (m_DisplayFont != null)
         {
             m_DisplayText.font = m_DisplayFont;
-            m_DisplayText.GetComponent<MeshRenderer>().material = m_DisplayFont.material;
+            EnsureDisplayTextMaterial();
         }
 
         UpdateDisplayText();
-        ApplyDepthTestingMaterialToDisplay();
-    }
-
-    private void ApplyDepthTestingMaterialToDisplay()
-    {
-        if (m_DisplayText == null) return;
-        var r = m_DisplayText.GetComponent<MeshRenderer>();
-        if (r == null) return;
-
-        var baseMat = r.sharedMaterial;
-        if (baseMat == null) return;
-
-        var mat = new Material(baseMat);
-        mat.color = m_DisplayText.color;
-        mat.renderQueue = 4000;
-        if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
-        if (mat.HasProperty("_Cull")) mat.SetInt("_Cull", (int)CullMode.Off);
-        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)CompareFunction.Always);
-        r.material = mat;
     }
 
     private void UpdateDisplayText()
@@ -1280,6 +1315,64 @@ public class DigitronCalculatorController : MonoBehaviour
         }
 
         m_DisplayText.text = m_Runtime.IsPoweredOn ? m_Runtime.DisplayText : string.Empty;
+        m_DisplayText.GetComponent<MeshRenderer>().enabled = true;
+    }
+
+    private void EnsureDisplayTextMaterial()
+    {
+        if (m_DisplayText == null || m_DisplayFont == null)
+        {
+            return;
+        }
+
+        var renderer = m_DisplayText.GetComponent<MeshRenderer>();
+        if (renderer == null)
+        {
+            return;
+        }
+
+        var baseMaterial = m_DisplayFont.material;
+        if (baseMaterial == null)
+        {
+            return;
+        }
+
+        if (m_DisplayTextMaterial == null)
+        {
+            m_DisplayTextMaterial = new Material(baseMaterial);
+        }
+        else
+        {
+            m_DisplayTextMaterial.CopyPropertiesFromMaterial(baseMaterial);
+            m_DisplayTextMaterial.shader = baseMaterial.shader;
+            m_DisplayTextMaterial.mainTexture = baseMaterial.mainTexture;
+        }
+
+        // Respect scene depth so display digits cannot render through housing from top/back views.
+        if (m_DisplayTextMaterial.HasProperty("_ZTest"))
+        {
+            m_DisplayTextMaterial.SetInt("_ZTest", (int)CompareFunction.LessEqual);
+        }
+
+        renderer.material = m_DisplayTextMaterial;
+    }
+
+    private void EnsureDisplayFont()
+    {
+        if (m_DisplayFont != null)
+        {
+            return;
+        }
+
+        m_DisplayFont = Resources.Load<Font>(KDisplayFontResourcesPath);
+        if (m_DisplayFont != null)
+        {
+            return;
+        }
+
+#if UNITY_EDITOR
+        m_DisplayFont = AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
+#endif
     }
 
     private void EnsureHotspotAnchors()
@@ -1398,7 +1491,7 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void EnsureDisplayMask()
     {
-        // Display mask disabled — no-op
+        // Display mask disabled Ã¢â‚¬â€ no-op
     }
 
     private void UpdateLampFacingCamera()
@@ -1427,18 +1520,62 @@ public class DigitronCalculatorController : MonoBehaviour
 
     private void UpdateDisplayTextVisibility()
     {
-        if (m_DisplayText == null || !m_TargetCamera) return;
+        if (m_DisplayText == null) return;
         var renderer = m_DisplayText.GetComponent<MeshRenderer>();
         if (renderer == null) return;
-        // Display only shown when calculator is closed — hide during opening/opened states
         if (m_State != DigitronState.PlacedClosed)
         {
             renderer.enabled = false;
             return;
         }
-        // Keep display stable/visible in closed state regardless of anchor forward direction.
-        // Different template/prefab paths can flip local forward and make dot-product culling hide text.
-        renderer.enabled = m_Runtime.IsPoweredOn;
+        renderer.enabled = m_Runtime.IsPoweredOn && IsDisplayFacingCamera();
+    }
+
+    private bool IsDisplayFacingCamera()
+    {
+        if (m_TargetCamera == null || m_ModelInstance == null)
+        {
+            return true;
+        }
+
+        Transform displayTransform = null;
+        if (m_DisplaySurface != null)
+        {
+            displayTransform = m_DisplaySurface;
+        }
+        else if (m_DisplayAnchor != null)
+        {
+            displayTransform = m_DisplayAnchor;
+        }
+        else if (m_DisplayText != null)
+        {
+            displayTransform = m_DisplayText.transform;
+        }
+
+        var displayPoint = displayTransform != null ? displayTransform.position : m_ModelInstance.transform.position;
+        var toCameraFromDisplay = (m_TargetCamera.transform.position - displayPoint).normalized;
+        var toCameraFromModel = (m_TargetCamera.transform.position - m_ModelInstance.transform.position).normalized;
+
+        // Hard-gate: never render digits when camera is behind calculator front.
+        var facingModelFront = Vector3.Dot(m_ModelInstance.transform.forward, toCameraFromModel) > 0.06f;
+        if (!facingModelFront)
+        {
+            return false;
+        }
+
+        // Use display normal, but align it with model front to avoid accidental flip to back side.
+        var displayNormal = m_ModelInstance.transform.forward;
+        if (displayTransform != null)
+        {
+            displayNormal = displayTransform.forward;
+            if (Vector3.Dot(displayNormal, m_ModelInstance.transform.forward) < 0f)
+            {
+                displayNormal = -displayNormal;
+            }
+        }
+
+        var facing = Vector3.Dot(displayNormal, toCameraFromDisplay);
+        return facing >= KDisplayFacingThreshold;
     }
 
     private void ResetCalculatorRuntime()
@@ -1723,7 +1860,7 @@ public class DigitronCalculatorController : MonoBehaviour
         // the switch would treat the ON position as the new OFF, causing drift on each rebuild.
         if (m_PowerSwitchTransform != null) return;
 
-        // Search by name first — sklopka may be outside the Y-range filter used for key candidates.
+        // Search by name first Ã¢â‚¬â€ sklopka may be outside the Y-range filter used for key candidates.
         Renderer best = null;
         foreach (var r in m_ModelInstance.GetComponentsInChildren<Renderer>(true))
         {
@@ -1781,7 +1918,7 @@ public class DigitronCalculatorController : MonoBehaviour
             }
             var switchTarget = best.gameObject.AddComponent<DigitronKeyHitTarget>();
             switchTarget.Initialize(this, DigitronKeyId.Power);
-            // Do NOT add to m_KeyTargets — the switch stays visible in all calculator states.
+            // Do NOT add to m_KeyTargets Ã¢â‚¬â€ the switch stays visible in all calculator states.
         }
     }
 
@@ -1859,11 +1996,12 @@ public class DigitronCalculatorController : MonoBehaviour
         m_HotspotMarkers.Clear();
         foreach (var hotspot in Hotspots)
         {
+            var normalizedTitle = NormalizeHotspotTitle(hotspot.Title);
             var markerObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
             markerObject.name = hotspot.Id;
             markerObject.transform.SetParent(transform, true);
             // Stretch background to fit the label text
-            var titleLines   = hotspot.Title.Split('\n');
+            var titleLines   = normalizedTitle.Split('\n');
             var longestLine  = 0;
             foreach (var ln in titleLines) if (ln.Length > longestLine) longestLine = ln.Length;
             var bgW = Mathf.Max(1f, longestLine * 0.11f) * KHotspotScale;
@@ -1885,7 +2023,7 @@ public class DigitronCalculatorController : MonoBehaviour
             renderer.receiveShadows = false;
             renderer.material = CreateHotspotMaterial();
             var marker = markerObject.AddComponent<DigitronHotspotMarker>();
-            try { marker.Initialize(this, hotspot.Id, hotspot.Title, m_TexSoloTrakica); }
+            try { marker.Initialize(this, hotspot.Id, normalizedTitle, m_TexSoloTrakica); }
             catch (System.Exception e) { Debug.LogWarning($"[Hotspot] marker init failed for {hotspot.Id}: {e.Message}"); }
             if (anchor != null) marker.InitLine(anchor);
             m_HotspotMarkers.Add(hotspot.Id, marker);
@@ -1930,7 +2068,7 @@ public class DigitronCalculatorController : MonoBehaviour
             }
         }
 
-        // Rotation map: name → desired localEulerAngles for the new mesh
+        // Rotation map: name Ã¢â€ â€™ desired localEulerAngles for the new mesh
         var rotMap = new Dictionary<string, Vector3>(System.StringComparer.OrdinalIgnoreCase)
         {
             { "baterija_01", m_BatRot01 },
@@ -1973,6 +2111,7 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             if (r == null) continue;
             if (IsRendererForHotspot(r, selectedKeywords)) continue;
+            if (IsRendererInHotspotHierarchy(r, selectedKeywords)) continue;
             GhostRenderer(r);
         }
     }
@@ -1990,43 +2129,58 @@ public class DigitronCalculatorController : MonoBehaviour
             var orig = origShared[i];
             var inst = orig != null ? new Material(orig) : new Material(Shader.Find("Standard"));
 
-            // Standard (Built-in) shader — enable Transparent mode.
+            // Standard (Built-in) shader Ã¢â‚¬â€ enable Transparent mode.
             if (inst.HasProperty("_Mode"))
             {
-                inst.SetFloat("_Mode", 3);
-                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                inst.SetInt("_ZWrite", 0);
+                inst.SetFloat("_Mode", 0);
+                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                inst.SetInt("_ZWrite", 1);
                 inst.DisableKeyword("_ALPHATEST_ON");
-                inst.EnableKeyword("_ALPHABLEND_ON");
+                inst.DisableKeyword("_ALPHABLEND_ON");
                 inst.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                inst.renderQueue = 3000;
+                inst.renderQueue = 2000;
             }
-            // URP Lit shader — enable Transparent surface.
+            // URP Lit shader Ã¢â‚¬â€ enable Transparent surface.
             if (inst.HasProperty("_Surface"))
             {
-                inst.SetFloat("_Surface", 1);
-                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                inst.SetInt("_ZWrite", 0);
-                inst.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                inst.renderQueue = 3000;
+                inst.SetFloat("_Surface", 0);
+                inst.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.One);
+                inst.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
+                inst.SetInt("_ZWrite", 1);
+                inst.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                inst.renderQueue = 2000;
             }
             // Apply ghost colour: blend original toward light-gray so dark/textureless
             // objects remain visible rather than disappearing against a light background.
-            const float kAlpha  = 0.15f;
-            const float kWhite  = 0.45f; // how much to shift toward light-gray
             if (inst.HasProperty("_Color"))
             {
-                var c = inst.GetColor("_Color");
-                var g = Color.Lerp(c, new Color(0.80f, 0.80f, 0.80f, 1f), kWhite);
-                inst.SetColor("_Color", new Color(g.r, g.g, g.b, kAlpha));
+                inst.SetColor("_Color", Color.white);
             }
             if (inst.HasProperty("_BaseColor"))
             {
-                var c = inst.GetColor("_BaseColor");
-                var g = Color.Lerp(c, new Color(0.80f, 0.80f, 0.80f, 1f), kWhite);
-                inst.SetColor("_BaseColor", new Color(g.r, g.g, g.b, kAlpha));
+                inst.SetColor("_BaseColor", Color.white);
+            }
+            if (inst.HasProperty("_MainTex"))
+            {
+                inst.SetTexture("_MainTex", Texture2D.whiteTexture);
+            }
+            if (inst.HasProperty("_BaseMap"))
+            {
+                inst.SetTexture("_BaseMap", Texture2D.whiteTexture);
+            }
+            if (inst.HasProperty("_BumpMap"))
+            {
+                inst.SetTexture("_BumpMap", null);
+            }
+            if (inst.HasProperty("_EmissionMap"))
+            {
+                inst.SetTexture("_EmissionMap", null);
+                inst.DisableKeyword("_EMISSION");
+            }
+            if (inst.HasProperty("_MetallicGlossMap"))
+            {
+                inst.SetTexture("_MetallicGlossMap", null);
             }
 
             ghostMats[i] = inst;
@@ -2047,12 +2201,49 @@ public class DigitronCalculatorController : MonoBehaviour
         m_GhostSaved.Clear();
     }
 
+    private static bool IsRendererInHotspotHierarchy(Renderer renderer, string[] keywords)
+    {
+        if (renderer == null || keywords == null || keywords.Length == 0)
+        {
+            return false;
+        }
+
+        Transform current = renderer.transform;
+        while (current != null)
+        {
+            var name = current.name.ToLowerInvariant();
+            foreach (var keyword in keywords)
+            {
+                if (name.Contains(keyword))
+                {
+                    return true;
+                }
+            }
+
+            current = current.parent;
+        }
+
+        foreach (Transform child in renderer.transform)
+        {
+            var childName = child.name.ToLowerInvariant();
+            foreach (var keyword in keywords)
+            {
+                if (childName.Contains(keyword))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private static bool IsRendererForHotspot(Renderer r, string[] keywords)
     {
         if (keywords == null) return false;
         var name = r.gameObject.name.ToLowerInvariant();
         foreach (var kw in keywords) if (name.Contains(kw)) return true;
-        // FBX imports often put MeshRenderer on a child of the named node — check parent name too
+        // FBX imports often put MeshRenderer on a child of the named node Ã¢â‚¬â€ check parent name too
         var parent = r.transform.parent;
         if (parent != null)
         {
@@ -2190,7 +2381,7 @@ public class DigitronCalculatorController : MonoBehaviour
         m_DisplayStyle.fontSize  = 24;
         m_DisplayStyle.fontStyle = FontStyle.Bold;
         m_DisplayStyle.normal.textColor = new Color(0.92f, 0.22f, 0.12f, 0.95f);
-        var displayFont = Resources.Load<Font>("digital-7 (mono)");
+        var displayFont = Resources.Load<Font>(KDisplayFontResourcesPath);
 #if UNITY_EDITOR
         if (displayFont == null)
             displayFont = UnityEditor.AssetDatabase.LoadAssetAtPath<Font>(KDisplayFontAssetPath);
@@ -2198,4 +2389,5 @@ public class DigitronCalculatorController : MonoBehaviour
         if (displayFont != null) m_DisplayStyle.font = displayFont;
     }
 }
+
 

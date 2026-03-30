@@ -5,7 +5,7 @@ MonoImporter:
   serializedVersion: 2
   defaultReferences:
   - m_TexDigitronNaslov: {fileID: 2800000, guid: 9f06ea0040e2b67409dfe1e4821bcfe3, type: 3}
-  - m_TexSoloTrakica: {fileID: 2800000, guid: 6d67b34b0019ea14194701e0bf370bac, type: 3}
+  - m_TexSoloTrakica: {fileID: 2800000, guid: 5c87ed0d91be4c7f9c6da5afebd5f0c2, type: 3}
   - m_TexPapirPodloga: {fileID: 2800000, guid: ad9e45532e093f44ab66feb643aa7a74, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
