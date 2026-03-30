@@ -501,8 +501,9 @@ public class MainController : MonoBehaviour
 
         cam.allowHDR  = false;
         cam.allowMSAA = true;
+        cam.useOcclusionCulling = false;
         QualitySettings.antiAliasing = 4;
-        LogWebRuntime("Configured runtime camera (HDR disabled, MSAA 4x enabled)");
+        LogWebRuntime("Configured runtime camera (HDR disabled, MSAA 4x enabled, occlusion culling off)");
 #endif
     }
 
@@ -832,6 +833,7 @@ public class MainController : MonoBehaviour
     {
         if (m_RuntimeCamera)
         {
+            m_RuntimeCamera.useOcclusionCulling = false;
             return;
         }
 
@@ -841,6 +843,7 @@ public class MainController : MonoBehaviour
             m_RuntimeCamera = existingPreviewCamera.GetComponent<Camera>();
             if (m_RuntimeCamera)
             {
+                m_RuntimeCamera.useOcclusionCulling = false;
                 return;
             }
         }
@@ -881,6 +884,7 @@ public class MainController : MonoBehaviour
         m_RuntimeCamera.nearClipPlane = sourceCamera.nearClipPlane;
         m_RuntimeCamera.farClipPlane = sourceCamera.farClipPlane;
         m_RuntimeCamera.allowHDR = false;
+        m_RuntimeCamera.useOcclusionCulling = false;
         previewCameraObject.AddComponent<AudioListener>();
 
         var sceneView = SceneView.lastActiveSceneView;

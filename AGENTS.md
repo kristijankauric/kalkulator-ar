@@ -145,3 +145,15 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Brza provjera nakon promjene:
   - u Play modu upisi vise znamenki (`555555...`) i provjeri da sjede u svjetlijem display pravokutniku
   - provjeri da je font `digital-7 (mono)` i u Editoru i u WebGL buildu
+
+## 13) Otvoreno - hotspot label clipping/culling (2026-03-30)
+- Status: NIJE potpuno rijeseno.
+- Simptom:
+  - pod odredenim rotacijama i dalje djelomicno nestaju hotspot naslovi/podloge i/ili linije
+  - vidljivost je bolja nego prije, ali problem nije 100% uklonjen
+- Pogodeni fileovi za daljnji rad:
+  - `Assets/Scripts/DigitronHotspotMarker.cs`
+  - `Assets/Scripts/DigitronCalculatorController.cs`
+  - `Assets/Scripts/MainController.cs`
+- Napomena:
+  - prije novih zahvata testirati ekstremne kutove (gore + lateralno) u desktop preview modu

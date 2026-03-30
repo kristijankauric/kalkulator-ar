@@ -3,7 +3,10 @@ using UnityEngine;
 public class DigitronHotspotMarker : MonoBehaviour
 {
     private const float KBackgroundScaleMultiplier = 4.2f; // +50% over current value; only background grows
+    private const float KLabelLocalZOffset = 0.12f;
     private const float KLabelCameraNudge = 0.01f;
+    private const float KLabelAnchorOutwardOffset = 0.03f;
+    private const float KLineAnchorOutwardOffset = 0.008f;
     private const float KTextBoundsExpand = 2.0f;
     private static readonly Vector3 KForcedTextBoundsSize = new Vector3(20f, 20f, 20f);
     private DigitronCalculatorController m_Controller;
@@ -14,6 +17,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Transform m_BackgroundTransform;
     private Renderer m_BackgroundRenderer;
     private TextMesh m_LabelTextMesh;
+    private Renderer m_LabelRenderer;
     private Texture2D m_BackgroundTexture;
     private Transform m_LabelTransform;
     private Vector3 m_LabelBaseLocalPosition;
@@ -43,6 +47,7 @@ public class DigitronHotspotMarker : MonoBehaviour
         m_Line = gameObject.AddComponent<LineRenderer>();
         m_Line.useWorldSpace        = true;
         m_Line.positionCount        = 2;
+        m_Line.alignment            = LineAlignment.View;
         m_Line.startWidth           = 0.010f;
         m_Line.endWidth             = 0.004f;
         m_Line.shadowCastingMode    = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -57,7 +62,15 @@ public class DigitronHotspotMarker : MonoBehaviour
     {
         if (m_Line == null || m_AnchorTarget == null) return;
         m_Line.SetPosition(0, transform.position);
-        m_Line.SetPosition(1, m_AnchorTarget.position);
+        var toMarker = transform.position - m_AnchorTarget.position;
+        if (toMarker.sqrMagnitude > 0.000001f)
+        {
+            m_Line.SetPosition(1, m_AnchorTarget.position + toMarker.normalized * KLineAnchorOutwardOffset);
+        }
+        else
+        {
+            m_Line.SetPosition(1, m_AnchorTarget.position);
+        }
     }
 
     public void SetSelected(bool selected)
@@ -82,7 +95,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     {
         var go = new GameObject("Label");
         go.transform.SetParent(transform, false);
-        go.transform.localPosition = new Vector3(0f, 0f, -0.15f);
+        go.transform.localPosition = new Vector3(0f, 0f, KLabelLocalZOffset);
         m_LabelBaseLocalPosition = go.transform.localPosition;
         go.transform.localScale    = Vector3.one;
         m_LabelTransform = go.transform;
@@ -148,6 +161,7 @@ public class DigitronHotspotMarker : MonoBehaviour
 
         var r = tm.GetComponent<MeshRenderer>();
         if (r == null) return;
+        m_LabelRenderer = r;
         var textMat = CreateOverlayTextMaterial(r.sharedMaterial, Color.black);
         if (textMat != null) r.material = textMat;
         r.sortingOrder = 5000;
@@ -242,7 +256,8 @@ public class DigitronHotspotMarker : MonoBehaviour
         mat.SetTexture("_MainTex", GetWhiteTexture());
         mat.renderQueue = 3000;
         if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
-        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+        if (mat.HasProperty("_Cull")) mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
         return mat;
     }
 
@@ -258,7 +273,8 @@ public class DigitronHotspotMarker : MonoBehaviour
         mat.SetTexture("_MainTex", texture);
         mat.renderQueue = 3000;
         if (mat.HasProperty("_ZWrite")) mat.SetInt("_ZWrite", 0);
-        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+        if (mat.HasProperty("_ZTest")) mat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+        if (mat.HasProperty("_Cull")) mat.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
         return mat;
     }
 
@@ -273,7 +289,8 @@ public class DigitronHotspotMarker : MonoBehaviour
         material.SetTexture("_MainTex", mainTex != null ? mainTex : GetWhiteTexture());
         material.renderQueue = 3001;
         if (material.HasProperty("_ZWrite")) material.SetInt("_ZWrite", 0);
-        if (material.HasProperty("_ZTest")) material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.LessEqual);
+        if (material.HasProperty("_ZTest")) material.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+        if (material.HasProperty("_Cull")) material.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
         return material;
     }
 
@@ -295,12 +312,28 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (m_Renderer != null) m_Renderer.enabled = true;
+        if (m_BackgroundRenderer != null) m_BackgroundRenderer.enabled = true;
+        if (m_LabelRenderer != null) m_LabelRenderer.enabled = true;
+        if (m_Line != null) m_Line.enabled = true;
+
         // Billboard: always face the camera regardless of parent rotation.
         if (m_LabelTransform != null && Camera.main != null)
         {
             m_LabelTransform.localPosition = m_LabelBaseLocalPosition;
             m_LabelTransform.rotation = Camera.main.transform.rotation;
-            m_LabelTransform.position += Camera.main.transform.forward * KLabelCameraNudge;
+            var worldPos = m_LabelTransform.position;
+            if (m_AnchorTarget != null)
+            {
+                var awayFromAnchor = worldPos - m_AnchorTarget.position;
+                if (awayFromAnchor.sqrMagnitude > 0.000001f)
+                {
+                    worldPos += awayFromAnchor.normalized * KLabelAnchorOutwardOffset;
+                }
+            }
+            // Nudge label slightly toward camera to avoid partial clipping by nearby housing edges.
+            worldPos -= Camera.main.transform.forward * KLabelCameraNudge;
+            m_LabelTransform.position = worldPos;
             ExpandTextMeshBounds();
         }
 

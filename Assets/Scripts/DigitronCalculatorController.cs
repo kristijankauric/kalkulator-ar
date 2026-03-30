@@ -357,6 +357,45 @@ public class DigitronCalculatorController : MonoBehaviour
         return m_ModelBounds;
     }
 
+    public bool IsHotspotAnchorVisibleFromCamera(Transform anchorTarget)
+    {
+        if (anchorTarget == null || m_TargetCamera == null)
+        {
+            return true;
+        }
+
+        var toCameraFromCenter = m_TargetCamera.transform.position - m_ModelBounds.center;
+        if (toCameraFromCenter.sqrMagnitude > 0.000001f)
+        {
+            var anchorFromCenter = anchorTarget.position - m_ModelBounds.center;
+            // Hard hemisphere gate: hide anchors on the opposite side of the model.
+            if (Vector3.Dot(anchorFromCenter, toCameraFromCenter) <= 0.01f)
+            {
+                return false;
+            }
+        }
+
+        var outward = anchorTarget.position - m_ModelBounds.center;
+        if (outward.sqrMagnitude < 0.000001f)
+        {
+            outward = anchorTarget.forward;
+        }
+        if (outward.sqrMagnitude < 0.000001f)
+        {
+            outward = m_ModelInstance != null ? m_ModelInstance.transform.forward : Vector3.forward;
+        }
+        outward.Normalize();
+
+        var toCamera = m_TargetCamera.transform.position - anchorTarget.position;
+        if (toCamera.sqrMagnitude < 0.000001f)
+        {
+            return true;
+        }
+        toCamera.Normalize();
+
+        return Vector3.Dot(outward, toCamera) > 0.18f;
+    }
+
     public void HandleKeyPress(DigitronKeyId keyId)
     {
         if (m_State != DigitronState.PlacedClosed) return;
@@ -1507,13 +1546,9 @@ public class DigitronCalculatorController : MonoBehaviour
     private void UpdateHotspotMarkersFacingCamera()
     {
         if (!m_TargetCamera) return;
-        // Use camera-parallel billboard (no up-axis constraint) so labels always
-        // face the camera head-on regardless of viewing angle.
-        var billboardRot = m_TargetCamera.transform.rotation * Quaternion.Euler(0f, 180f, 0f);
         foreach (var marker in m_HotspotMarkers.Values)
         {
             if (!marker || !marker.gameObject.activeSelf) continue;
-            marker.transform.rotation = billboardRot;
             marker.UpdateLine();
         }
     }
