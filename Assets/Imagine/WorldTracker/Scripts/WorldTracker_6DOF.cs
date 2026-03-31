@@ -119,6 +119,9 @@ namespace Imagine.WebAR
             }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
+            // Push the exact screen-space indicator target before handing off to wTracker 6DOF.
+            // Without this, tracker can start from stale/centered SS target and appear offset.
+            SyncScreenSpacePosition();
             var json = "{";
             json += "\"MODE\":\"6DOF\"" + ",";
             json += "\"START_Z\":" + startZ.ToStringInvariantCulture();
