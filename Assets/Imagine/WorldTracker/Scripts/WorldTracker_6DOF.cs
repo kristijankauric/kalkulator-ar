@@ -101,26 +101,15 @@ namespace Imagine.WebAR
 
         }
 
-        void Place_6DOF(){
+        void Place_6DOF(Vector3 placementPos){
 
             StartCoroutine("SyncScreenSpaceRoutine");
 
-            var placementPos = mainObject.transform.position;
-            if (usePlacementIndicator && placementIndicatorSettings != null && placementIndicatorSettings.placementIndicator != null)
-            {
-                placementPos = placementIndicatorSettings.placementIndicator.transform.position;
-            }
-
             mainObject.transform.position = placementPos;
 
-            var currentCamPos = trackerCamera.transform.position;
-            var startCamPos = new Vector3(currentCamPos.x, 0, currentCamPos.z);
-            var placementPosXZ = new Vector3(placementPos.x, 0, placementPos.z);
-            startZ = Vector3.Distance(placementPosXZ, startCamPos);
-            if (startZ < 0.05f)
-            {
-                startZ = Mathf.Max(0.5f, s3dof.armLength);
-            }
+            // Keep original tracker start semantics to avoid mobile placement drift.
+            var startCamPos = new Vector3(origPos.x, 0, origPos.z);
+            trackerCamera.transform.position = startCamPos;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             var json = "{";

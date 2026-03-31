@@ -315,6 +315,7 @@ namespace Imagine.WebAR
         public void PlaceOrigin()
         {
             //ResetOrigin();
+            var lookAtCameraPosOnPlace = new Vector3(trackerCamera.transform.position.x, 0, trackerCamera.transform.position.z);
             if (usePlacementIndicator)
             {
                 var ps = placementIndicatorSettings;
@@ -329,7 +330,7 @@ namespace Imagine.WebAR
                     Place_3DOF(ps.placementIndicator.transform.position);
                 }
                 else if(mode == TrackingMode.MODE_6DOF){
-                    Place_6DOF();
+                    Place_6DOF(ps.placementIndicator.transform.position);
                 }
 
                 ps.placed = true;
@@ -353,7 +354,7 @@ namespace Imagine.WebAR
                 //Billboard the object to always face the camera
                 //Debug.Log("Billboard!");
             }));
-            mainObject.transform.LookAt(new Vector3(trackerCamera.transform.position.x, 0, trackerCamera.transform.position.z), Vector3.up);
+            mainObject.transform.LookAt(lookAtCameraPosOnPlace, Vector3.up);
         }
 
         public void ResetOrigin()
