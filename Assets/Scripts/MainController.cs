@@ -35,6 +35,7 @@ public class MainController : MonoBehaviour
     private bool m_WebDesktopPreviewInitialized;
     private bool m_MobileReady;
     private Coroutine m_MobileRotationEnforceRoutine;
+    private Coroutine m_MobileGroundSnapRoutine;
 
     private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
     private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
@@ -501,28 +502,103 @@ public class MainController : MonoBehaviour
 #endif
     }
 
-    private void SnapMobileDigitronToSurface(Transform digitronRoot)
+    private void SnapMobileDigitronToSurface(Transform digitronRoot, bool scheduleFollowup = true)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        const float mobileGroundSnapDownBias = 0.05f;
+        const float mobileGroundSnapDownBias = 0.08f;
         if (digitronRoot == null || m_DigitronController == null || IsWebDesktopPreview())
         {
             return;
         }
 
-        var parentY = m_DigitronParent ? m_DigitronParent.position.y : digitronRoot.position.y;
-        var modelBounds = m_DigitronController.GetWorldBounds();
-        var deltaY = modelBounds.min.y - parentY;
-        if (Mathf.Abs(deltaY) < 0.0005f)
+        TryApplyMobileGroundSnap(digitronRoot, mobileGroundSnapDownBias, log: true);
+
+        if (!scheduleFollowup)
         {
             return;
         }
 
-        var extraDown = Mathf.Clamp(mobileGroundSnapDownBias, 0f, 0.15f);
-        digitronRoot.position -= new Vector3(0f, deltaY + extraDown, 0f);
-        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}, extraDown={extraDown:0.###}");
+        if (m_MobileGroundSnapRoutine != null)
+        {
+            StopCoroutine(m_MobileGroundSnapRoutine);
+        }
+
+        m_MobileGroundSnapRoutine = StartCoroutine(EnforceMobileGroundSnapRoutine(digitronRoot));
 #endif
     }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private IEnumerator EnforceMobileGroundSnapRoutine(Transform digitronRoot)
+    {
+        // WorldTracker pose can settle over several frames after placement.
+        // Re-snap with zero extra bias to keep the model glued to the detected plane.
+        for (var i = 0; i < 20; i++)
+        {
+            yield return null;
+            if (digitronRoot == null || m_DigitronController == null || IsWebDesktopPreview())
+            {
+                m_MobileGroundSnapRoutine = null;
+                yield break;
+            }
+
+            TryApplyMobileGroundSnap(digitronRoot, extraDownBias: 0f, log: false);
+        }
+
+        m_MobileGroundSnapRoutine = null;
+    }
+
+    private bool TryApplyMobileGroundSnap(Transform digitronRoot, float extraDownBias, bool log)
+    {
+        var parent = m_DigitronParent ? m_DigitronParent : digitronRoot.parent;
+        if (parent == null)
+        {
+            return false;
+        }
+
+        var modelBounds = m_DigitronController.GetWorldBounds();
+        var parentUp = parent.up.sqrMagnitude > 0.0001f ? parent.up.normalized : Vector3.up;
+        var parentProjection = Vector3.Dot(parent.position, parentUp);
+        var minBoundsProjection = GetMinBoundsProjectionAlongAxis(modelBounds, parentUp);
+        var delta = minBoundsProjection - parentProjection;
+        if (Mathf.Abs(delta) < 0.0005f)
+        {
+            return false;
+        }
+
+        var extraDown = Mathf.Clamp(extraDownBias, 0f, 0.15f);
+        digitronRoot.position -= parentUp * (delta + extraDown);
+        if (log)
+        {
+            LogWebRuntime($"Mobile ground snap applied: delta={delta:0.####}, extraDown={extraDown:0.###}");
+        }
+
+        return true;
+    }
+
+    private static float GetMinBoundsProjectionAlongAxis(Bounds bounds, Vector3 axis)
+    {
+        var min = bounds.min;
+        var max = bounds.max;
+        var p0 = new Vector3(min.x, min.y, min.z);
+        var p1 = new Vector3(min.x, min.y, max.z);
+        var p2 = new Vector3(min.x, max.y, min.z);
+        var p3 = new Vector3(min.x, max.y, max.z);
+        var p4 = new Vector3(max.x, min.y, min.z);
+        var p5 = new Vector3(max.x, min.y, max.z);
+        var p6 = new Vector3(max.x, max.y, min.z);
+        var p7 = new Vector3(max.x, max.y, max.z);
+
+        var minProjection = Vector3.Dot(p0, axis);
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p1, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p2, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p3, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p4, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p5, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p6, axis));
+        minProjection = Mathf.Min(minProjection, Vector3.Dot(p7, axis));
+        return minProjection;
+    }
+#endif
 
     private void ConfigureWebRuntimeCamera()
     {
