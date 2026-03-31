@@ -504,7 +504,7 @@ public class MainController : MonoBehaviour
     private void SnapMobileDigitronToSurface(Transform digitronRoot)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        const float mobileGroundSnapDownBias = 0.03f;
+        const float mobileGroundSnapDownBias = 0.05f;
         if (digitronRoot == null || m_DigitronController == null || IsWebDesktopPreview())
         {
             return;
