@@ -47,7 +47,7 @@
     <script src="wtracker.js" type="text/javascript"></script>
     <script src="Build/docs.loader.js"></script>
     <script>
-        const APP_BUILD_VERSION = '0.34';
+        const APP_BUILD_VERSION = '0.31';
         const _modeOverride = new URLSearchParams(window.location.search).get('mode');
         const isDesktopPreview = _modeOverride === 'desktop' ? true
             : _modeOverride === 'mobile' ? false
@@ -74,99 +74,7 @@
             version.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:9999;padding:2px 6px;font-size:10px;letter-spacing:0.2px;opacity:0.72;background:rgba(0,0,0,0.45);color:#fff;border-radius:3px;pointer-events:none;';
             document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(version); });
         })();
-        // Tracking debug overlay (for diagnosing world tracking stability on real devices)
-        (function() {
-            const panel = document.createElement('div');
-            panel.id = 'tracking-debug-overlay';
-            panel.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10000;padding:6px 8px;max-width:72vw;font-size:10px;line-height:1.35;letter-spacing:0.1px;white-space:pre-line;opacity:0.84;background:rgba(8,12,16,0.74);color:#dff6ff;border:1px solid rgba(140,200,220,0.35);border-radius:5px;pointer-events:none;';
-
-            function boolText(v) { return v ? 'yes' : 'no'; }
-            function formatNumber(v, digits) {
-                if (typeof v !== 'number' || !isFinite(v)) return '-';
-                return v.toFixed(digits || 0);
-            }
-
-            function refreshOverlay() {
-                const wt = window.wTracker;
-                const ac = window.arCamera;
-                const now = Date.now();
-                const modeLabel = isDesktopPreview ? 'desktop-preview' : 'mobile-webar';
-                const wtMode = wt && wt.MODE ? wt.MODE : '-';
-                const wtState = wt && wt.state ? wt.state : '-';
-                const wtStarted = wt ? boolText(!!wt.isStarted) : '-';
-                const camStarted = ac ? boolText(!!ac.isCameraStarted) : '-';
-                const camPaused = ac ? boolText(!!ac.cameraPaused) : '-';
-                const fps = wt && typeof wt.fps === 'number' ? formatNumber(wt.fps, 1) : '-';
-                const errors = wt && typeof wt.MAX_ERRORS === 'number' ? wt.MAX_ERRORS : '-';
-                const drift = wt && typeof wt.driftCounter === 'number' ? wt.driftCounter : '-';
-                const lastUpdate = wt && typeof wt.lastUpdateTime === 'number'
-                    ? Math.max(0, now - wt.lastUpdateTime)
-                    : null;
-                const updateAge = lastUpdate == null ? '-' : (lastUpdate + 'ms');
-
-                panel.textContent =
-                    'Tracking Debug\n' +
-                    'build: v' + APP_BUILD_VERSION + '\n' +
-                    'runtime: ' + modeLabel + '\n' +
-                    'tracker.mode: ' + wtMode + '\n' +
-                    'tracker.state: ' + wtState + '\n' +
-                    'tracker.started: ' + wtStarted + '\n' +
-                    'camera.started: ' + camStarted + '\n' +
-                    'camera.paused: ' + camPaused + '\n' +
-                    'fps: ' + fps + '\n' +
-                    'lastUpdateAge: ' + updateAge + '\n' +
-                    'driftCounter: ' + drift + '\n' +
-                    'maxErrors: ' + errors;
-            }
-
-            document.addEventListener('DOMContentLoaded', function() {
-                document.body.appendChild(panel);
-                refreshOverlay();
-                setInterval(refreshOverlay, 400);
-            });
-        })();
         let hasStartedUnity = false;
-
-        function getOpenCvCandidates() {
-            const candidates = [];
-            const add = (url) => {
-                if (!url) return;
-                if (candidates.indexOf(url) >= 0) return;
-                candidates.push(url);
-            };
-
-            const baseHref = window.location.href.split('#')[0];
-            add(new URL('opencv.js', baseHref).href);
-            add(window.location.origin + '/opencv.js');
-
-            // Fallback for project-pages style paths (e.g. /repo-name/index.html).
-            const pathParts = window.location.pathname.split('/').filter(Boolean);
-            if (pathParts.length > 0) {
-                add(window.location.origin + '/' + pathParts[0] + '/opencv.js');
-            }
-
-            return candidates;
-        }
-
-        async function initializeWorldTrackerWithFallback() {
-            const candidates = getOpenCvCandidates();
-            const failures = [];
-
-            for (const candidate of candidates) {
-                for (let attempt = 1; attempt <= 2; attempt++) {
-                    try {
-                        await wTracker.initialize(candidate);
-                        console.log('World tracker initialized with', candidate, 'attempt', attempt);
-                        return;
-                    } catch (error) {
-                        const errorText = (error && (error.message || error.toString())) || 'unknown-error';
-                        failures.push(candidate + ' [attempt ' + attempt + ']: ' + errorText);
-                    }
-                }
-            }
-
-            throw new Error('OpenCV load failed. Tried:\n' + failures.join('\n'));
-        }
 
         function startUnityRuntime() {
             if (hasStartedUnity) return;
@@ -215,13 +123,12 @@
             }
 
             try{
-                await initializeWorldTrackerWithFallback();
+                await wTracker.initialize("./opencv.js");
                 console.log("World tracker initialized!");   
             }
             catch (error) {
                 console.error("Failed to initialize world tracker. Are you missing opencv.js?", error);
-                const errorText = (error && (error.message || error.toString())) || 'unknown-error';
-                ShowError("Failed to initialize the World Tracker.\n" + errorText);
+                ShowError("Failed to initialize the World Tracker.\n" + error);
                 return;
             }
 

@@ -107,23 +107,11 @@ namespace Imagine.WebAR
 
             mainObject.transform.position = placementPos;
 
-            // Use camera pose at exact tap-time so world tracking starts from the same
-            // camera/object relation user selected with the placement indicator.
-            var clickCamPos = trackerCamera.transform.position;
-            var startCamPos = clickCamPos;
-            var placementPosForDepth = new Vector3(placementPos.x, clickCamPos.y, placementPos.z);
-            startZ = Vector3.Distance(placementPosForDepth, clickCamPos);
-            if (startZ < 0.05f)
-            {
-                startZ = 0.05f;
-            }
-
+            // Keep original tracker start semantics to avoid mobile placement drift.
+            var startCamPos = new Vector3(origPos.x, 0, origPos.z);
             trackerCamera.transform.position = startCamPos;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-            // Push current screen-space target before switching to 6DOF to reduce
-            // first-frame jump from stale/centered target data in the web tracker.
-            SyncScreenSpacePosition();
             var json = "{";
             json += "\"MODE\":\"6DOF\"" + ",";
             json += "\"START_Z\":" + startZ.ToStringInvariantCulture();
