@@ -185,6 +185,16 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Svaki novi deploy (`commit + push + build/deploy`) mora dobiti novu verziju.
 - Verzija se prikazuje na dnu ekrana malim slovima kao `vX.XX` (build badge u `docs/index.html`).
 - Početna tocka ovog pravila je verzija `0.31`.
+- Trenutno aktivna radna verzija nakon zadnje dorade: `0.32`.
 - Svaki sljedeci deploy povecava broj verzije (npr. `0.32`, `0.33`, ...), i isti broj se koristi u:
   - `APP_BUILD_VERSION` u `docs/index.html`
   - `productVersion` u Unity loader konfiguraciji (u istom fileu)
+
+## 17) Tracking debug overlay (2026-03-31)
+- U `docs/index.html` je dodan browser-side debug panel (`#tracking-debug-overlay`) za brzu dijagnostiku WebAR trackinga.
+- Panel prikazuje: `tracker.mode`, `tracker.state`, `tracker.started`, `camera.started`, `camera.paused`, `fps`, `lastUpdateAge`, `driftCounter`, `maxErrors`.
+- Overlay je samo dijagnosticki i ne mijenja core WorldTracker logiku.
+
+## 18) Mobile visina modela (2026-03-31)
+- Dodan je dodatni mobile ground snap down-bias (`m_MobileGroundSnapDownBias = 0.03`) nakon poravnanja modela na plohu.
+- Cilj: smanjiti dojam da kalkulator "pluta" previsoko nakon placementa.

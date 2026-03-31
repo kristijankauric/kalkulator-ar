@@ -504,6 +504,7 @@ public class MainController : MonoBehaviour
     private void SnapMobileDigitronToSurface(Transform digitronRoot)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
+        const float mobileGroundSnapDownBias = 0.03f;
         if (digitronRoot == null || m_DigitronController == null || IsWebDesktopPreview())
         {
             return;
@@ -517,8 +518,9 @@ public class MainController : MonoBehaviour
             return;
         }
 
-        digitronRoot.position -= new Vector3(0f, deltaY, 0f);
-        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}");
+        var extraDown = Mathf.Clamp(mobileGroundSnapDownBias, 0f, 0.15f);
+        digitronRoot.position -= new Vector3(0f, deltaY + extraDown, 0f);
+        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}, extraDown={extraDown:0.###}");
 #endif
     }
 
