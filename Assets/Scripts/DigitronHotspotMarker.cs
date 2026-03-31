@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class DigitronHotspotMarker : MonoBehaviour
 {
-    private const float KBackgroundScaleMultiplier = 4.2f; // +50% over current value; only background grows
+    private const float KBackgroundScaleMultiplier = 2.8f; // Background only: enlarge graphic behind text
     private const float KLabelLocalZOffset = 0.12f;
     private const float KLabelCameraNudge = 0.01f;
     private const float KLabelAnchorOutwardOffset = 0.03f;
@@ -11,8 +11,8 @@ public class DigitronHotspotMarker : MonoBehaviour
     private static readonly Vector3 KForcedTextBoundsSize = new Vector3(20f, 20f, 20f);
     private DigitronCalculatorController m_Controller;
     private string m_HotspotId;
-    private Renderer m_Renderer;
     private LineRenderer m_Line;
+    private Camera m_TargetCamera;
     private Transform m_AnchorTarget;
     private Transform m_BackgroundTransform;
     private Renderer m_BackgroundRenderer;
@@ -22,8 +22,6 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Transform m_LabelTransform;
     private Vector3 m_LabelBaseLocalPosition;
 
-    private static readonly Color KNormalColor   = Color.white;
-    private static readonly Color KSelectedColor = new Color(1f, 0.80f, 0.00f);
     private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 1f);
     private static Texture2D s_WhiteTexture;
     // Cache fitted background sizes per hotspot ID so repeated open/close cycles
@@ -36,9 +34,18 @@ public class DigitronHotspotMarker : MonoBehaviour
         m_Controller       = controller;
         m_HotspotId        = hotspotId;
         m_BackgroundTexture = backgroundTexture;
-        m_Renderer          = GetComponent<Renderer>();
+        if (!string.IsNullOrEmpty(hotspotId))
+        {
+            // Recompute fitted size with current transform scale (prevents stale oversized cache reuse).
+            s_FittedBgScales.Remove(hotspotId);
+        }
         BuildLabel(NormalizeLabel(label));
         SetSelected(false);
+    }
+
+    public void SetTargetCamera(Camera targetCamera)
+    {
+        m_TargetCamera = targetCamera;
     }
 
     public void InitLine(Transform anchorTarget)
@@ -75,10 +82,6 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     public void SetSelected(bool selected)
     {
-        if (!m_Renderer) return;
-        var block = new MaterialPropertyBlock();
-        block.SetColor("_Color", selected ? KSelectedColor : KNormalColor);
-        m_Renderer.SetPropertyBlock(block);
         // Line turns orange when this hotspot is selected
         if (m_Line != null && m_Line.material != null)
             m_Line.material.color = selected
@@ -142,7 +145,19 @@ public class DigitronHotspotMarker : MonoBehaviour
         background.transform.localRotation = Quaternion.identity;
         background.transform.localScale = new Vector3(bgWidth, bgHeight, 1f);
         m_BackgroundTransform = background.transform;
-        // Keep collider for click detection — add proxy to route clicks to this marker
+
+        // Replace primitive MeshCollider with stable full-rect BoxCollider so the whole
+        // label strip is reliably clickable as one button.
+        var primitiveCollider = background.GetComponent<Collider>();
+        if (primitiveCollider != null)
+        {
+            Destroy(primitiveCollider);
+        }
+        var boxCollider = background.AddComponent<BoxCollider>();
+        boxCollider.center = Vector3.zero;
+        boxCollider.size = new Vector3(1f, 1f, 0.02f);
+
+        // Keep click proxy on the background collider to route clicks to this marker.
         var bgClickProxy = background.AddComponent<DigitronHotspotClickProxy>();
         bgClickProxy.Setup(this);
         var bgRenderer = background.GetComponent<Renderer>();
@@ -312,17 +327,22 @@ public class DigitronHotspotMarker : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (m_Renderer != null) m_Renderer.enabled = true;
         if (m_BackgroundRenderer != null) m_BackgroundRenderer.enabled = true;
         if (m_LabelRenderer != null) m_LabelRenderer.enabled = true;
         if (m_Line != null) m_Line.enabled = true;
 
         // Billboard: always face the camera regardless of parent rotation.
-        if (m_LabelTransform != null && Camera.main != null)
+        var targetCamera = ResolveTargetCamera();
+        if (m_LabelTransform != null && targetCamera != null)
         {
             m_LabelTransform.localPosition = m_LabelBaseLocalPosition;
-            m_LabelTransform.rotation = Camera.main.transform.rotation;
             var worldPos = m_LabelTransform.position;
+            var toCamera = targetCamera.transform.position - worldPos;
+            if (toCamera.sqrMagnitude > 0.000001f)
+            {
+                // TextMesh front side points opposite of quad's forward in this setup.
+                m_LabelTransform.rotation = Quaternion.LookRotation(-toCamera.normalized, targetCamera.transform.up);
+            }
             if (m_AnchorTarget != null)
             {
                 var awayFromAnchor = worldPos - m_AnchorTarget.position;
@@ -332,7 +352,9 @@ public class DigitronHotspotMarker : MonoBehaviour
                 }
             }
             // Nudge label slightly toward camera to avoid partial clipping by nearby housing edges.
-            worldPos -= Camera.main.transform.forward * KLabelCameraNudge;
+            worldPos += toCamera.sqrMagnitude > 0.000001f
+                ? toCamera.normalized * KLabelCameraNudge
+                : -targetCamera.transform.forward * KLabelCameraNudge;
             m_LabelTransform.position = worldPos;
             ExpandTextMeshBounds();
         }
@@ -347,4 +369,11 @@ public class DigitronHotspotMarker : MonoBehaviour
     }
 
     private void OnMouseDown() => OnClick();
+
+    private Camera ResolveTargetCamera()
+    {
+        if (m_TargetCamera != null) return m_TargetCamera;
+        m_TargetCamera = Camera.main;
+        return m_TargetCamera;
+    }
 }

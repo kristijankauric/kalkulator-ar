@@ -54,8 +54,8 @@ public class DigitronCalculatorController : MonoBehaviour
     private const float KPhysicalKeyPressDuration = 0.08f;
     private const float KOpenButtonWidth = 160f;
     private const float KOpenButtonHeight = 50f;
-    private const float KHotspotScale = 0.045f;
     private const float KHotspotOffsetFactor = 0.28f;
+    private const float KHotspotMarkerRootScale = 0.045f;
     private const float KInfoBoxWidth = 660f;
     private const float KInfoBoxHeight = 220f;
     private const float KBottomUiMargin = 28f;
@@ -442,7 +442,7 @@ public class DigitronCalculatorController : MonoBehaviour
         }
         UpdateLampFacingCamera();
         UpdateDisplayTextVisibility();
-        UpdateHotspotMarkersFacingCamera();
+        UpdateHotspotMarkerLines();
         HandleCalculatorPointerInput();
     }
 
@@ -1543,12 +1543,13 @@ public class DigitronCalculatorController : MonoBehaviour
         m_LampRenderer.transform.Rotate(0f, 180f, 0f);
     }
 
-    private void UpdateHotspotMarkersFacingCamera()
+    private void UpdateHotspotMarkerLines()
     {
         if (!m_TargetCamera) return;
         foreach (var marker in m_HotspotMarkers.Values)
         {
             if (!marker || !marker.gameObject.activeSelf) continue;
+            marker.SetTargetCamera(m_TargetCamera);
             marker.UpdateLine();
         }
     }
@@ -2032,16 +2033,10 @@ public class DigitronCalculatorController : MonoBehaviour
         foreach (var hotspot in Hotspots)
         {
             var normalizedTitle = NormalizeHotspotTitle(hotspot.Title);
-            var markerObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            var markerObject = new GameObject(hotspot.Id);
             markerObject.name = hotspot.Id;
             markerObject.transform.SetParent(transform, true);
-            // Stretch background to fit the label text
-            var titleLines   = normalizedTitle.Split('\n');
-            var longestLine  = 0;
-            foreach (var ln in titleLines) if (ln.Length > longestLine) longestLine = ln.Length;
-            var bgW = Mathf.Max(1f, longestLine * 0.11f) * KHotspotScale;
-            var bgH = (titleLines.Length > 1 ? 1.7f : 1.0f) * KHotspotScale;
-            markerObject.transform.localScale = new Vector3(bgW, bgH, KHotspotScale);
+            markerObject.transform.localScale = Vector3.one * KHotspotMarkerRootScale;
             var anchor = m_HotspotAnchors.TryGetValue(hotspot.Id, out var hotspotAnchor) ? hotspotAnchor : null;
             // Place marker near its anchor mesh, offset in MarkerLocalDir direction
             var anchorPos = anchor != null
@@ -2053,13 +2048,10 @@ public class DigitronCalculatorController : MonoBehaviour
             var markerPos = anchorPos + worldOffset;
             markerObject.transform.position = markerPos;
             markerObject.transform.rotation = anchor ? anchor.rotation : m_ModelInstance.transform.rotation;
-            var renderer = markerObject.GetComponent<Renderer>();
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.material = CreateHotspotMaterial();
             var marker = markerObject.AddComponent<DigitronHotspotMarker>();
             try { marker.Initialize(this, hotspot.Id, normalizedTitle, m_TexSoloTrakica); }
             catch (System.Exception e) { Debug.LogWarning($"[Hotspot] marker init failed for {hotspot.Id}: {e.Message}"); }
+            marker.SetTargetCamera(m_TargetCamera);
             if (anchor != null) marker.InitLine(anchor);
             m_HotspotMarkers.Add(hotspot.Id, marker);
         }
@@ -2286,13 +2278,6 @@ public class DigitronCalculatorController : MonoBehaviour
             foreach (var kw in keywords) if (parentName.Contains(kw)) return true;
         }
         return false;
-    }
-
-    private static Material CreateHotspotMaterial()
-    {
-        var material = new Material(Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default") ?? Shader.Find("Standard"));
-        material.color = new Color(0.96f, 0.92f, 0.80f, 1f); // cream
-        return material;
     }
 
     private Transform FindChildContaining(string token)

@@ -157,3 +157,26 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
   - `Assets/Scripts/MainController.cs`
 - Napomena:
   - prije novih zahvata testirati ekstremne kutove (gore + lateralno) u desktop preview modu
+
+## 14) Potvrdeni baseline za novi chat (2026-03-31)
+- Prihvacena "OK" verzija za nastavak rada:
+  - branch: `dorade`
+  - commit: `e6482b6` (`Revert "Improve mobile placement lock and hide initial indicator flicker"`)
+- Lokalni workspace je uskladen s deployanom verzijom (`origin/dorade`, clean `git status`).
+- U sljedecem chatu tretirati `e6482b6` kao polaznu stabilnu tocku za daljnji tuning trackinga.
+
+## 15) Hotspot natpisi - stabilizacija (2026-03-31)
+- Implementirano:
+  - hotspot natpisi koriste eksplicitni `targetCamera` (fallback: `Camera.main`) umjesto implicitnog oslanjanja samo na `Camera.main`
+  - billboard je prebacen na `LookRotation` prema kameri (bez random rotiranja i bez zrcaljenja teksta)
+  - podloga naslova je povecana na tocno 2x (sirina i visina), tekst ostaje iste velicine
+  - marker root scale je vracen na mali faktor (`0.045`) radi citljive velicine natpisa
+  - podloga hotspot naslova je dodatno povecana (multiplier `2.8`) bez promjene velicine teksta
+  - `LabelBackground` koristi puni `BoxCollider` tako da je cijela trakica klikabilna (button zona = cijela podloga)
+  - uklonjen je legacy root quad renderer za marker (marker root je sada prazan GO; vizual je samo label background + text)
+  - zadrzan je overlay pristup (`ZTest Always`, `ZWrite Off`, `Cull Off`) i prosireni text bounds radi smanjenja clipping/culling artefakata
+  - u desktop/editor preview modu runtime gasi scene objekte `Shadow Plane` i `Shadow` radi cisce vidljivosti labela tijekom debuga
+  - mobile WebGL runtime forsira siri pinch zoom-out raspon preko `PinchToScale.minScale = 0.03` (runtime override)
+- Pogođeni fileovi:
+  - `Assets/Scripts/DigitronHotspotMarker.cs`
+  - `Assets/Scripts/DigitronCalculatorController.cs`

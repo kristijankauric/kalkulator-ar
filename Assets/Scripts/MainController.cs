@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using Imagine.WebAR;
 using UnityEngine.SceneManagement;
@@ -70,6 +71,7 @@ public class MainController : MonoBehaviour
         else
         {
             SetWorldTrackerInteractionComponents(true);
+            ConfigureMobilePinchZoomOutRange();
             LogWebRuntime("Start -> JSShowUI");
             LibraryManager.JSShowUI();
             StartCoroutine(ForceInitialMobileResetRoutine());
@@ -110,6 +112,13 @@ public class MainController : MonoBehaviour
         {
             SpawnDigitron();
         }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (!IsWebDesktopPreview())
+        {
+            ConfigureMobilePinchZoomOutRange();
+        }
+#endif
     }
 
     public void OnResetOrigin()
@@ -565,6 +574,7 @@ public class MainController : MonoBehaviour
         {
             placementIndicator.SetActive(false);
         }
+        DisableShadowPlaneObjectsForPreview();
 
         var mainObject = FindSceneGameObject("MainObject");
         if (mainObject)
@@ -589,6 +599,28 @@ public class MainController : MonoBehaviour
 
         var pan = FindObjectOfType<TwoFingerPan>();
         if (pan) pan.enabled = isEnabled;
+    }
+
+    private void ConfigureMobilePinchZoomOutRange()
+    {
+        const float mobilePinchMinScale = 0.03f;
+        var pinch = FindObjectOfType<PinchToScale>();
+        if (!pinch)
+        {
+            return;
+        }
+
+        var pinchType = pinch.GetType();
+        var minScaleField = pinchType.GetField("minScale", BindingFlags.Instance | BindingFlags.NonPublic);
+        if (minScaleField == null)
+        {
+            Debug.LogWarning("[MainController] PinchToScale.minScale field not found; mobile zoom-out override skipped.");
+            return;
+        }
+
+        var clampedMin = Mathf.Clamp(mobilePinchMinScale, 0.01f, 1f);
+        minScaleField.SetValue(pinch, clampedMin);
+        LogWebRuntime($"Configured mobile pinch minScale={clampedMin:0.###} for extra zoom-out range");
     }
 
     private IEnumerator ForceInitialMobileResetRoutine()
@@ -803,6 +835,8 @@ public class MainController : MonoBehaviour
         {
             jankecAnchor.SetActive(true);
         }
+
+        DisableShadowPlaneObjectsForPreview();
     }
 
     private void FrameEditorPlayModeCamera()
@@ -1003,6 +1037,21 @@ public class MainController : MonoBehaviour
         }
     }
 
+    private static void DisableShadowPlaneObjectsForPreview()
+    {
+        var shadowPlane = FindSceneGameObject("Shadow Plane");
+        if (shadowPlane)
+        {
+            shadowPlane.SetActive(false);
+        }
+
+        var shadow = FindSceneGameObject("Shadow");
+        if (shadow)
+        {
+            shadow.SetActive(false);
+        }
+    }
+
     private static GameObject FindSceneGameObject(string objectName)
     {
         var activeObject = GameObject.Find(objectName);
@@ -1035,6 +1084,21 @@ public class MainController : MonoBehaviour
 #endif
 
 #if !UNITY_EDITOR
+    private static void DisableShadowPlaneObjectsForPreview()
+    {
+        var shadowPlane = FindSceneGameObject("Shadow Plane");
+        if (shadowPlane)
+        {
+            shadowPlane.SetActive(false);
+        }
+
+        var shadow = FindSceneGameObject("Shadow");
+        if (shadow)
+        {
+            shadow.SetActive(false);
+        }
+    }
+
     private static GameObject FindSceneGameObject(string objectName)
     {
         foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
