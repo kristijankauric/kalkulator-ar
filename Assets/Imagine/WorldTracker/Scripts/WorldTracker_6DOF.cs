@@ -107,21 +107,18 @@ namespace Imagine.WebAR
 
             mainObject.transform.position = placementPos;
 
-            // Use camera XZ at tap-time, but keep Y at tracker ground level (0)
-            // to match wTracker 6DOF placement semantics and avoid vertical lift.
+            // Use camera pose at the exact moment of "Place" tap.
+            // This keeps placement aligned with the indicator position user selected.
             var clickCamPos = trackerCamera.transform.position;
-            var startCamPos = new Vector3(clickCamPos.x, 0f, clickCamPos.z);
-            var placementPosXZ = new Vector3(placementPos.x, 0f, placementPos.z);
-            startZ = Vector3.Distance(placementPosXZ, startCamPos);
+            var startCamPos = clickCamPos;
+            var placementPosForDepth = new Vector3(placementPos.x, clickCamPos.y, placementPos.z);
+            startZ = Vector3.Distance(placementPosForDepth, clickCamPos);
             if (startZ < 0.05f)
             {
                 startZ = 0.05f;
             }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-            // Push the exact screen-space indicator target before handing off to wTracker 6DOF.
-            // Without this, tracker can start from stale/centered SS target and appear offset.
-            SyncScreenSpacePosition();
             var json = "{";
             json += "\"MODE\":\"6DOF\"" + ",";
             json += "\"START_Z\":" + startZ.ToStringInvariantCulture();
