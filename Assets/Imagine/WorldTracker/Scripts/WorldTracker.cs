@@ -123,8 +123,7 @@ namespace Imagine.WebAR
                 placementIndicatorSettings.placed = false;
                 if (placementIndicatorSettings.placementIndicator != null)
                 {
-                    // Keep hidden until first valid UpdatePlacementIndicator pass.
-                    placementIndicatorSettings.placementIndicator.SetActive(false);
+                    placementIndicatorSettings.placementIndicator.SetActive(true);
                 }
                 if (mainObject != null)
                 {
@@ -386,8 +385,7 @@ namespace Imagine.WebAR
                 ps.placed = false;
                 if (ps.placementIndicator != null)
                 {
-                    // Keep hidden until UpdatePlacementIndicator computes a stable pose.
-                    ps.placementIndicator.SetActive(false);
+                    ps.placementIndicator.SetActive(true);
                 }
                 if (mainObject != null)
                 {
