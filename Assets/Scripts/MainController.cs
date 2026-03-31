@@ -185,6 +185,7 @@ public class MainController : MonoBehaviour
             m_DigitronController.ResetDigitronState();
             m_DigitronController.gameObject.SetActive(true);
             m_DigitronController.HandlePlaced(GetActiveRuntimeCamera());
+            SnapMobileDigitronToSurface(m_DigitronController.transform);
             LogWebRuntime("SpawnDigitron reused existing controller instance");
 #if UNITY_EDITOR
             if (Application.isPlaying && m_EnableEditorInstantPreview)
@@ -232,6 +233,7 @@ public class MainController : MonoBehaviour
         try
         {
             m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize(), m_DigitronOpenAnimationClip);
+            SnapMobileDigitronToSurface(digitronRoot.transform);
             LogWebRuntime($"SpawnDigitron initialized new instance '{digitronRoot.name}'");
         }
         catch (System.Exception e)
@@ -496,6 +498,27 @@ public class MainController : MonoBehaviour
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         Debug.Log($"[WebAR][MainController] {message}");
+#endif
+    }
+
+    private void SnapMobileDigitronToSurface(Transform digitronRoot)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (digitronRoot == null || m_DigitronController == null || IsWebDesktopPreview())
+        {
+            return;
+        }
+
+        var parentY = m_DigitronParent ? m_DigitronParent.position.y : digitronRoot.position.y;
+        var modelBounds = m_DigitronController.GetWorldBounds();
+        var deltaY = modelBounds.min.y - parentY;
+        if (Mathf.Abs(deltaY) < 0.0005f)
+        {
+            return;
+        }
+
+        digitronRoot.position -= new Vector3(0f, deltaY, 0f);
+        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}");
 #endif
     }
 

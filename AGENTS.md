@@ -180,3 +180,11 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Pogođeni fileovi:
   - `Assets/Scripts/DigitronHotspotMarker.cs`
   - `Assets/Scripts/DigitronCalculatorController.cs`
+
+## 16) Pravilo verzioniranja builda (od 2026-03-31)
+- Svaki novi deploy (`commit + push + build/deploy`) mora dobiti novu verziju.
+- Verzija se prikazuje na dnu ekrana malim slovima kao `vX.XX` (build badge u `docs/index.html`).
+- Početna tocka ovog pravila je verzija `0.31`.
+- Svaki sljedeci deploy povecava broj verzije (npr. `0.32`, `0.33`, ...), i isti broj se koristi u:
+  - `APP_BUILD_VERSION` u `docs/index.html`
+  - `productVersion` u Unity loader konfiguraciji (u istom fileu)

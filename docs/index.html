@@ -47,6 +47,7 @@
     <script src="wtracker.js" type="text/javascript"></script>
     <script src="Build/docs.loader.js"></script>
     <script>
+        const APP_BUILD_VERSION = '0.31';
         const _modeOverride = new URLSearchParams(window.location.search).get('mode');
         const isDesktopPreview = _modeOverride === 'desktop' ? true
             : _modeOverride === 'mobile' ? false
@@ -64,6 +65,14 @@
                 window.location.search = p.toString();
             };
             document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(btn); });
+        })();
+        // Build version badge (always visible, small text at bottom)
+        (function() {
+            const version = document.createElement('div');
+            version.id = 'build-version-badge';
+            version.textContent = 'v' + APP_BUILD_VERSION;
+            version.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:9999;padding:2px 6px;font-size:10px;letter-spacing:0.2px;opacity:0.72;background:rgba(0,0,0,0.45);color:#fff;border-radius:3px;pointer-events:none;';
+            document.addEventListener('DOMContentLoaded', function() { document.body.appendChild(version); });
         })();
         let hasStartedUnity = false;
 
@@ -87,7 +96,7 @@
                     streamingAssetsUrl: "StreamingAssets",
                     companyName: "Brojka Kreativnih Produkcija",
                     productName: "Digitron db801 AR kalkulator",
-                    productVersion: "0.4.0",
+                    productVersion: APP_BUILD_VERSION,
                     },
                     (progress) => {
                         runtimeProgressBarFull.style.width = 100 * progress + "%";
