@@ -21,7 +21,7 @@ public class MainController : MonoBehaviour
     [SerializeField] private Vector3 m_BatRot04 = new Vector3(  0f, 0f, 0f);
     private bool m_EnableDigitronMode = true;
     private float m_TargetDigitronSize = 0.3f;
-    private float m_WebTargetScaleMultiplier = 3.0f;
+    private float m_WebTargetScaleMultiplier = 3.35f;
     private bool m_EnableEditorInstantPreview = true;
     private Vector3 m_EditorPreviewLocalPosition = new Vector3(0f, 0.1f, 1.25f);
     private Vector3 m_EditorPreviewLocalEulerAngles = new Vector3(0f, 180f, 0f);
