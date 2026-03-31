@@ -107,16 +107,9 @@ namespace Imagine.WebAR
 
             mainObject.transform.position = placementPos;
 
-            // Use camera pose at the exact moment of "Place" tap.
-            // This keeps placement aligned with the indicator position user selected.
-            var clickCamPos = trackerCamera.transform.position;
-            var startCamPos = clickCamPos;
-            var placementPosForDepth = new Vector3(placementPos.x, clickCamPos.y, placementPos.z);
-            startZ = Vector3.Distance(placementPosForDepth, clickCamPos);
-            if (startZ < 0.05f)
-            {
-                startZ = 0.05f;
-            }
+            // Keep original tracker start semantics to avoid mobile placement drift.
+            var startCamPos = new Vector3(origPos.x, 0, origPos.z);
+            trackerCamera.transform.position = startCamPos;
 
 #if UNITY_WEBGL && !UNITY_EDITOR
             var json = "{";
