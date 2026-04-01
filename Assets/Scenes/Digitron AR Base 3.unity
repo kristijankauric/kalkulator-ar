@@ -1183,7 +1183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scaleTransform: {fileID: 4639901997162458842}
-  minScale: 0.08
+  minScale: 0.1
   maxScale: 10
 --- !u!114 &4153563435912217875
 MonoBehaviour:
@@ -1260,7 +1260,7 @@ MonoBehaviour:
     minZ: 0.1
     maxZ: 5
     placementIndicator: {fileID: 4153563435992480452}
-    placed: 0
+    placed: 1
     OnPlacementIndicatorShown:
       m_PersistentCalls:
         m_Calls:

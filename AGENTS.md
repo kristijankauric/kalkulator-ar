@@ -204,3 +204,9 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
   - `Assets/Scripts/DigitronHotspotMarker.cs`
   - `Assets/Scripts/MainController.cs`
   - `Assets/Scripts/DigitronCalculatorController.cs`
+
+## 18) WorldTracker baseline uskladen s Jankec scenom (2026-04-01)
+- U `Assets/Scenes/Digitron AR Base 3.unity` uskladene su kljucne pocetne vrijednosti s `Jankec_Mihanovic_Tuheljske_Toplice`:
+  - `PinchToScale.minScale` postavljen na `0.1` (ranije `0.08`)
+  - `WorldTracker.placementIndicatorSettings.placed` postavljen na `1` (ranije `0`)
+- Event hookovi (`OnPlacedOrigin`/`OnResetOrigin`) i dalje ostaju runtime-bound kroz `MainController.EnsureWorldTrackerHooks()` radi postojece stabilne arhitekture.
