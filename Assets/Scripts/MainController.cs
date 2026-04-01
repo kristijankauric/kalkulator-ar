@@ -512,19 +512,18 @@ public class MainController : MonoBehaviour
             return;
         }
 
-        var targetOrigin = m_DigitronParent ? m_DigitronParent.position : digitronRoot.position;
+        var targetOriginY = m_DigitronParent ? m_DigitronParent.position.y : digitronRoot.position.y;
         var modelBounds = m_DigitronController.GetWorldBounds();
-        // Contact point = model bottom center. Keep this locked to the placement origin
-        // so we correct both vertical lift and horizontal pivot offsets.
-        var contactPoint = new Vector3(modelBounds.center.x, modelBounds.min.y, modelBounds.center.z);
-        var delta = contactPoint - targetOrigin;
-        if (delta.sqrMagnitude < (0.0005f * 0.0005f))
+        // Keep the model grounded on the placed origin without changing horizontal placement.
+        // X/Z alignment stays fully controlled by WorldTracker placement to avoid side-shifts.
+        var deltaY = modelBounds.min.y - targetOriginY;
+        if (Mathf.Abs(deltaY) < 0.0005f)
         {
             return;
         }
 
-        digitronRoot.position -= delta;
-        LogWebRuntime($"Mobile placement snap applied: delta=({delta.x:0.####},{delta.y:0.####},{delta.z:0.####})");
+        digitronRoot.position -= new Vector3(0f, deltaY, 0f);
+        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}");
 #endif
     }
 

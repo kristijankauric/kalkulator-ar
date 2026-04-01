@@ -215,3 +215,10 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - U `Assets/Scripts/MainController.cs` mobile placement snap vise ne korigira samo `Y`, nego poravnava 3D kontakt tocku modela (`bounds.center.xz + bounds.min.y`) na placement origin.
 - Dodan je kratki post-placement re-snap kroz nekoliko frameova (`MobilePlacementSnapRoutine`) kako bi se smanjilo "plutanje" dok se tracking i bounds stabiliziraju.
 - Primjena je ogranicena na WebGL mobile runtime (desktop preview ostaje netaknut).
+
+## 20) Hotfix - nestajanje modela nakon placementa (2026-04-01)
+- Uoceno: na mobile buildu model se nakon placementa ponekad ne pojavi (pomak iz kadra).
+- Fix:
+  - `SnapMobileDigitronToSurface` vracen na sigurni `Y-only` ground snap (bez X/Z korekcije).
+  - `Assets/Scenes/Digitron AR Base 3.unity` -> `WorldTracker.placementIndicatorSettings.placed` vracen na `0`.
+- Zadrzan je post-placement re-snap kroz nekoliko frameova, ali samo vertikalno.
