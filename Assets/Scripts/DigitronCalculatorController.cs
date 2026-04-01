@@ -357,6 +357,11 @@ public class DigitronCalculatorController : MonoBehaviour
         return m_ModelBounds;
     }
 
+    public void RefreshPlacementBounds()
+    {
+        RecalculateBounds();
+    }
+
     public bool IsHotspotAnchorVisibleFromCamera(Transform anchorTarget)
     {
         if (anchorTarget == null || m_TargetCamera == null)

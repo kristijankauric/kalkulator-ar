@@ -599,10 +599,12 @@ public class MainController : MonoBehaviour
         var deltaY = modelBounds.min.y - targetOriginY;
         if (Mathf.Abs(deltaY) < 0.0005f)
         {
+            m_DigitronController.RefreshPlacementBounds();
             return;
         }
 
         digitronRoot.position -= new Vector3(0f, deltaY, 0f);
+        m_DigitronController.RefreshPlacementBounds();
         LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}");
 #endif
     }
