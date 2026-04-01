@@ -228,3 +228,9 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Fix u `Assets/Scripts/MainController.cs`:
   - `OnPlacedOrigin` sada suppressa samo prvi prerani event, a zatim aktivira fallback readiness i dopusta spawn.
   - `ForceInitialMobileResetRoutine` postavlja `m_MobileReady = true` fallback i kad `WorldTracker` privremeno nije pronaden.
+
+## 22) Hotfix - placement watchdog (2026-04-01)
+- Dodan mobile runtime watchdog u `Assets/Scripts/MainController.cs`:
+  - prati stanje `WorldTracker.mainObject.activeInHierarchy`
+  - ako je placement aktivan, a `Digitron` instanca nije spawnana, watchdog forsira `OnPlacedOrigin()` flow.
+- `ForceInitialMobileResetRoutine` sada preskace `ResetOrigin()` ako je korisnik vec uspio postaviti objekt prije isteka odgode.

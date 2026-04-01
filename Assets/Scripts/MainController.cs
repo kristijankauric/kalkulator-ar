@@ -37,6 +37,7 @@ public class MainController : MonoBehaviour
     private bool m_MobilePlacementSuppressedOnce;
     private Coroutine m_MobileRotationEnforceRoutine;
     private Coroutine m_MobilePlacementSnapRoutine;
+    private Coroutine m_MobilePlacementWatchdogRoutine;
 
     private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
     private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
@@ -77,6 +78,7 @@ public class MainController : MonoBehaviour
             LogWebRuntime("Start -> JSShowUI");
             LibraryManager.JSShowUI();
             StartCoroutine(ForceInitialMobileResetRoutine());
+            StartMobilePlacementWatchdog();
         }
 #endif
 
@@ -726,10 +728,84 @@ public class MainController : MonoBehaviour
             yield break;
         }
 
+        if (tracker.mainObject != null && tracker.mainObject.activeInHierarchy)
+        {
+            // User may have already placed before this delayed reset fired.
+            // Don't reset in that case.
+            m_MobileReady = true;
+            LogWebRuntime("ForceInitialMobileResetRoutine: placement already active, skipping ResetOrigin.");
+            yield break;
+        }
+
         tracker.ResetOrigin();
         m_MobileReady = true;
         LogWebRuntime("Forced initial ResetOrigin done — mobile ready for placement");
     }
+
+    private void StartMobilePlacementWatchdog()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (IsWebDesktopPreview())
+        {
+            return;
+        }
+
+        if (m_MobilePlacementWatchdogRoutine != null)
+        {
+            StopCoroutine(m_MobilePlacementWatchdogRoutine);
+        }
+
+        m_MobilePlacementWatchdogRoutine = StartCoroutine(MobilePlacementWatchdogRoutine());
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private IEnumerator MobilePlacementWatchdogRoutine()
+    {
+        // Fallback for devices where OnPlacedOrigin event occasionally does not fire.
+        // If WorldTracker mainObject is active, we force the same placement flow.
+        const float tick = 0.25f;
+        const float maxDuration = 30f;
+        var elapsed = 0f;
+
+        while (elapsed < maxDuration)
+        {
+            yield return new WaitForSeconds(tick);
+            elapsed += tick;
+
+            if (IsWebDesktopPreview())
+            {
+                m_MobilePlacementWatchdogRoutine = null;
+                yield break;
+            }
+
+            if (m_DigitronController != null)
+            {
+                m_MobilePlacementWatchdogRoutine = null;
+                yield break;
+            }
+
+            var tracker = FindObjectOfType<WorldTracker>();
+            if (tracker == null || tracker.mainObject == null)
+            {
+                continue;
+            }
+
+            if (!tracker.mainObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            m_MobileReady = true;
+            LogWebRuntime("Placement watchdog: mainObject active without digitron instance, forcing OnPlacedOrigin.");
+            OnPlacedOrigin();
+            m_MobilePlacementWatchdogRoutine = null;
+            yield break;
+        }
+
+        m_MobilePlacementWatchdogRoutine = null;
+    }
+#endif
 
     private void FrameWebDesktopCamera()
     {
