@@ -210,3 +210,8 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
   - `PinchToScale.minScale` postavljen na `0.1` (ranije `0.08`)
   - `WorldTracker.placementIndicatorSettings.placed` postavljen na `1` (ranije `0`)
 - Event hookovi (`OnPlacedOrigin`/`OnResetOrigin`) i dalje ostaju runtime-bound kroz `MainController.EnsureWorldTrackerHooks()` radi postojece stabilne arhitekture.
+
+## 19) Mobile placement snap stabilizacija (2026-04-01)
+- U `Assets/Scripts/MainController.cs` mobile placement snap vise ne korigira samo `Y`, nego poravnava 3D kontakt tocku modela (`bounds.center.xz + bounds.min.y`) na placement origin.
+- Dodan je kratki post-placement re-snap kroz nekoliko frameova (`MobilePlacementSnapRoutine`) kako bi se smanjilo "plutanje" dok se tracking i bounds stabiliziraju.
+- Primjena je ogranicena na WebGL mobile runtime (desktop preview ostaje netaknut).

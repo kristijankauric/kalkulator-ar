@@ -35,6 +35,7 @@ public class MainController : MonoBehaviour
     private bool m_WebDesktopPreviewInitialized;
     private bool m_MobileReady;
     private Coroutine m_MobileRotationEnforceRoutine;
+    private Coroutine m_MobilePlacementSnapRoutine;
 
     private const string KDigitronResourcePath = "Digitron/db801-novo-odvojene-tipke";
     private const string KDigitronCanonicalPrefabName = "db801-novo-odvojene-tipke";
@@ -186,6 +187,7 @@ public class MainController : MonoBehaviour
             m_DigitronController.gameObject.SetActive(true);
             m_DigitronController.HandlePlaced(GetActiveRuntimeCamera());
             SnapMobileDigitronToSurface(m_DigitronController.transform);
+            ScheduleMobilePlacementSnap(digitronRoot: m_DigitronController.transform);
             LogWebRuntime("SpawnDigitron reused existing controller instance");
 #if UNITY_EDITOR
             if (Application.isPlaying && m_EnableEditorInstantPreview)
@@ -234,6 +236,7 @@ public class MainController : MonoBehaviour
         {
             m_DigitronController.Initialize(modelInstance, GetActiveRuntimeCamera(), GetTargetDigitronSize(), m_DigitronOpenAnimationClip);
             SnapMobileDigitronToSurface(digitronRoot.transform);
+            ScheduleMobilePlacementSnap(digitronRoot.transform);
             LogWebRuntime($"SpawnDigitron initialized new instance '{digitronRoot.name}'");
         }
         catch (System.Exception e)
@@ -509,18 +512,58 @@ public class MainController : MonoBehaviour
             return;
         }
 
-        var parentY = m_DigitronParent ? m_DigitronParent.position.y : digitronRoot.position.y;
+        var targetOrigin = m_DigitronParent ? m_DigitronParent.position : digitronRoot.position;
         var modelBounds = m_DigitronController.GetWorldBounds();
-        var deltaY = modelBounds.min.y - parentY;
-        if (Mathf.Abs(deltaY) < 0.0005f)
+        // Contact point = model bottom center. Keep this locked to the placement origin
+        // so we correct both vertical lift and horizontal pivot offsets.
+        var contactPoint = new Vector3(modelBounds.center.x, modelBounds.min.y, modelBounds.center.z);
+        var delta = contactPoint - targetOrigin;
+        if (delta.sqrMagnitude < (0.0005f * 0.0005f))
         {
             return;
         }
 
-        digitronRoot.position -= new Vector3(0f, deltaY, 0f);
-        LogWebRuntime($"Mobile ground snap applied: deltaY={deltaY:0.####}");
+        digitronRoot.position -= delta;
+        LogWebRuntime($"Mobile placement snap applied: delta=({delta.x:0.####},{delta.y:0.####},{delta.z:0.####})");
 #endif
     }
+
+    private void ScheduleMobilePlacementSnap(Transform digitronRoot)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (digitronRoot == null || IsWebDesktopPreview())
+        {
+            return;
+        }
+
+        if (m_MobilePlacementSnapRoutine != null)
+        {
+            StopCoroutine(m_MobilePlacementSnapRoutine);
+        }
+
+        m_MobilePlacementSnapRoutine = StartCoroutine(MobilePlacementSnapRoutine(digitronRoot));
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    private IEnumerator MobilePlacementSnapRoutine(Transform digitronRoot)
+    {
+        // Re-apply snap for a few frames because AR tracking and bounds can settle right after placement.
+        for (var i = 0; i < 8; i++)
+        {
+            yield return null;
+            if (digitronRoot == null || IsWebDesktopPreview())
+            {
+                m_MobilePlacementSnapRoutine = null;
+                yield break;
+            }
+
+            SnapMobileDigitronToSurface(digitronRoot);
+        }
+
+        m_MobilePlacementSnapRoutine = null;
+    }
+#endif
 
     private void ConfigureWebRuntimeCamera()
     {
