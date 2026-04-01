@@ -234,3 +234,13 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
   - prati stanje `WorldTracker.mainObject.activeInHierarchy`
   - ako je placement aktivan, a `Digitron` instanca nije spawnana, watchdog forsira `OnPlacedOrigin()` flow.
 - `ForceInitialMobileResetRoutine` sada preskace `ResetOrigin()` ako je korisnik vec uspio postaviti objekt prije isteka odgode.
+
+## 23) Mobile debug overlay (2026-04-01)
+- Dodan je on-screen `OnGUI` debug overlay u `Assets/Scripts/MainController.cs` za WebGL mobile runtime.
+- Overlay prikazuje:
+  - `m_MobileReady`
+  - watchdog i suppression state
+  - postoji li `Digitron` instanca
+  - postoji li `WorldTracker` i je li `mainObject` aktivan
+  - zadnjih nekoliko runtime poruka (`OnPlacedOrigin`, `SpawnDigitron`, reset, watchdog)
+- Svrha: debugirati zasto se kalkulator ne spawna bez oslanjanja na lokalne mobitel logove.

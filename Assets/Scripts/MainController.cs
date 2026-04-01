@@ -35,6 +35,7 @@ public class MainController : MonoBehaviour
     private bool m_WebDesktopPreviewInitialized;
     private bool m_MobileReady;
     private bool m_MobilePlacementSuppressedOnce;
+    private readonly List<string> m_RuntimeOverlayLines = new List<string>();
     private Coroutine m_MobileRotationEnforceRoutine;
     private Coroutine m_MobilePlacementSnapRoutine;
     private Coroutine m_MobilePlacementWatchdogRoutine;
@@ -510,10 +511,76 @@ public class MainController : MonoBehaviour
         return true;
     }
 
-    private static void LogWebRuntime(string message)
+    private void LogWebRuntime(string message)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
         Debug.Log($"[WebAR][MainController] {message}");
+        AppendRuntimeOverlay(message);
+#endif
+    }
+
+    private void AppendRuntimeOverlay(string message)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        var line = $"[{Time.frameCount}] {message}";
+        m_RuntimeOverlayLines.Add(line);
+        while (m_RuntimeOverlayLines.Count > 10)
+        {
+            m_RuntimeOverlayLines.RemoveAt(0);
+        }
+#endif
+    }
+
+    private void OnGUI()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (IsWebDesktopPreview())
+        {
+            return;
+        }
+
+        var boxWidth = Mathf.Min(Screen.width - 20f, 560f);
+        var boxHeight = Mathf.Min(Screen.height - 20f, 260f);
+        var boxRect = new Rect(10f, 10f, boxWidth, boxHeight);
+
+        var bgColor = GUI.color;
+        GUI.color = new Color(0f, 0f, 0f, 0.72f);
+        GUI.Box(boxRect, GUIContent.none);
+        GUI.color = Color.white;
+
+        var x = boxRect.x + 10f;
+        var y = boxRect.y + 8f;
+        var lineHeight = 18f;
+        var width = boxRect.width - 20f;
+
+        GUI.Label(new Rect(x, y, width, lineHeight), "WebAR Debug Overlay");
+        y += lineHeight;
+        GUI.Label(new Rect(x, y, width, lineHeight), $"ready={m_MobileReady} watchdog={(m_MobilePlacementWatchdogRoutine != null)} suppressOnce={m_MobilePlacementSuppressedOnce}");
+        y += lineHeight;
+        GUI.Label(new Rect(x, y, width, lineHeight), $"digitron={(m_DigitronController != null)} parent={(m_DigitronParent != null ? m_DigitronParent.name : "null")}");
+        y += lineHeight;
+
+        var tracker = FindObjectOfType<WorldTracker>();
+        var mainObjectActive = tracker != null && tracker.mainObject != null && tracker.mainObject.activeInHierarchy;
+        GUI.Label(new Rect(x, y, width, lineHeight), $"tracker={(tracker != null)} mainObjectActive={mainObjectActive} hooks={m_WorldTrackerHooksBound}");
+        y += lineHeight + 4f;
+
+        GUI.Label(new Rect(x, y, width, lineHeight), "Recent:");
+        y += lineHeight;
+
+        var availableLines = Mathf.FloorToInt((boxRect.height - (y - boxRect.y) - 8f) / lineHeight);
+        var startIndex = Mathf.Max(0, m_RuntimeOverlayLines.Count - availableLines);
+        for (var i = startIndex; i < m_RuntimeOverlayLines.Count; i++)
+        {
+            GUI.Label(new Rect(x, y, width, lineHeight), m_RuntimeOverlayLines[i]);
+            y += lineHeight;
+            if (y > boxRect.yMax - lineHeight)
+            {
+                break;
+            }
+        }
+
+        GUI.color = bgColor;
 #endif
     }
 
