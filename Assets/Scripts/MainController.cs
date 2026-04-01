@@ -627,6 +627,7 @@ public class MainController : MonoBehaviour
     private void ConfigureMobilePinchZoomOutRange()
     {
         const float mobilePinchMinScale = 0.03f;
+        const float mobilePinchMaxScale = 2.5f;
         var pinch = FindObjectOfType<PinchToScale>();
         if (!pinch)
         {
@@ -634,7 +635,9 @@ public class MainController : MonoBehaviour
         }
 
         var pinchType = pinch.GetType();
-        var minScaleField = pinchType.GetField("minScale", BindingFlags.Instance | BindingFlags.NonPublic);
+        const BindingFlags fieldFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        var minScaleField = pinchType.GetField("minScale", fieldFlags);
+        var maxScaleField = pinchType.GetField("maxScale", fieldFlags);
         if (minScaleField == null)
         {
             Debug.LogWarning("[MainController] PinchToScale.minScale field not found; mobile zoom-out override skipped.");
@@ -642,8 +645,18 @@ public class MainController : MonoBehaviour
         }
 
         var clampedMin = Mathf.Clamp(mobilePinchMinScale, 0.01f, 1f);
+        var clampedMax = Mathf.Clamp(mobilePinchMaxScale, clampedMin + 0.01f, 10f);
         minScaleField.SetValue(pinch, clampedMin);
-        LogWebRuntime($"Configured mobile pinch minScale={clampedMin:0.###} for extra zoom-out range");
+        if (maxScaleField != null)
+        {
+            maxScaleField.SetValue(pinch, clampedMax);
+        }
+        else
+        {
+            Debug.LogWarning("[MainController] PinchToScale.maxScale field not found; zoom-in range left as default.");
+        }
+
+        LogWebRuntime($"Configured mobile pinch scale range min={clampedMin:0.###}, max={clampedMax:0.###}");
     }
 
     private IEnumerator ForceInitialMobileResetRoutine()

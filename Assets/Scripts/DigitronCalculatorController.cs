@@ -2049,7 +2049,7 @@ public class DigitronCalculatorController : MonoBehaviour
             markerObject.transform.position = markerPos;
             markerObject.transform.rotation = anchor ? anchor.rotation : m_ModelInstance.transform.rotation;
             var marker = markerObject.AddComponent<DigitronHotspotMarker>();
-            try { marker.Initialize(this, hotspot.Id, normalizedTitle, m_TexSoloTrakica); }
+            try { marker.Initialize(this, hotspot.Id, normalizedTitle, null); }
             catch (System.Exception e) { Debug.LogWarning($"[Hotspot] marker init failed for {hotspot.Id}: {e.Message}"); }
             marker.SetTargetCamera(m_TargetCamera);
             if (anchor != null) marker.InitLine(anchor);

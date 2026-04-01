@@ -188,3 +188,19 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Svaki sljedeci deploy povecava broj verzije (npr. `0.32`, `0.33`, ...), i isti broj se koristi u:
   - `APP_BUILD_VERSION` u `docs/index.html`
   - `productVersion` u Unity loader konfiguraciji (u istom fileu)
+
+## 17) Hotspot label background + mobile pinch (2026-04-01)
+- Hotspot label background vise ne koristi paper teksturu (`solo trakica`), nego cisti bijeli rectangle (`Color.white`) iza teksta.
+- Velicina rectangle podloge je sada adaptivna po platformi:
+  - desktop/editor: `KBackgroundScaleMultiplierDesktop = 2.4`, `KBackgroundMinLocalWidthDesktop = 3.8`, `KBackgroundMinLocalHeightDesktop = 1.4`
+  - mobile: `KBackgroundScaleMultiplierMobile = 3.1`, `KBackgroundMinLocalWidthMobile = 5.4`, `KBackgroundMinLocalHeightMobile = 1.9`
+- Sirina hotspot podloge je dodatno smanjena za ~25% (`KBackgroundWidthScale = 0.75`), dok visina ostaje nepromijenjena.
+- Selektirani hotspot sada boji i podlogu natpisa u narancasto (isti ton kao selektirana linija).
+- Label i background ostaju na billboard pristupu prema aktivnoj kameri (`targetCamera`, fallback `Camera.main`) i rotiraju se kao cjelina.
+- Mobile pinch runtime override sada postavlja i `minScale` i `maxScale`:
+  - `PinchToScale.minScale = 0.03` (vise zoom-out)
+  - `PinchToScale.maxScale = 2.5` (kontrolirani zoom-in)
+- Pogodeni fileovi:
+  - `Assets/Scripts/DigitronHotspotMarker.cs`
+  - `Assets/Scripts/MainController.cs`
+  - `Assets/Scripts/DigitronCalculatorController.cs`

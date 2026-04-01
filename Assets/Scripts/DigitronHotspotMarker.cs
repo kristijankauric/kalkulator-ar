@@ -2,7 +2,13 @@ using UnityEngine;
 
 public class DigitronHotspotMarker : MonoBehaviour
 {
-    private const float KBackgroundScaleMultiplier = 2.8f; // Background only: enlarge graphic behind text
+    private const float KBackgroundWidthScale = 0.75f; // ~25% narrower labels, keep same height
+    private const float KBackgroundScaleMultiplierDesktop = 2.4f;
+    private const float KBackgroundScaleMultiplierMobile = 3.1f;
+    private const float KBackgroundMinLocalWidthDesktop = 3.8f;
+    private const float KBackgroundMinLocalHeightDesktop = 1.4f;
+    private const float KBackgroundMinLocalWidthMobile = 5.4f;
+    private const float KBackgroundMinLocalHeightMobile = 1.9f;
     private const float KLabelLocalZOffset = 0.12f;
     private const float KLabelCameraNudge = 0.01f;
     private const float KLabelAnchorOutwardOffset = 0.03f;
@@ -22,7 +28,7 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Transform m_LabelTransform;
     private Vector3 m_LabelBaseLocalPosition;
 
-    private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 1f);
+    private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 0.98f);
     private static Texture2D s_WhiteTexture;
     // Cache fitted background sizes per hotspot ID so repeated open/close cycles
     // don't cause the background to drift in size.
@@ -33,7 +39,8 @@ public class DigitronHotspotMarker : MonoBehaviour
     {
         m_Controller       = controller;
         m_HotspotId        = hotspotId;
-        m_BackgroundTexture = backgroundTexture;
+        // Force clean white rectangle background for hotspot labels.
+        m_BackgroundTexture = null;
         if (!string.IsNullOrEmpty(hotspotId))
         {
             // Recompute fitted size with current transform scale (prevents stale oversized cache reuse).
@@ -87,11 +94,11 @@ public class DigitronHotspotMarker : MonoBehaviour
             m_Line.material.color = selected
                 ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
                 : new Color(1f, 1f, 1f, 0.85f);      // white
-        // Background: orange tint when selected, white (shows texture) when normal
+        // Match selected state with line color: selected -> orange, idle -> white.
         if (m_BackgroundRenderer != null && m_BackgroundRenderer.material != null)
             m_BackgroundRenderer.material.color = selected
                 ? new Color(1f, 0.50f, 0.05f, 1f)   // orange
-                : Color.white;
+                : KLabelBackgroundColor;
     }
 
     private void BuildLabel(string label)
@@ -137,6 +144,13 @@ public class DigitronHotspotMarker : MonoBehaviour
         var bgHeight = lineCount > 1
             ? Mathf.Max(lineCount * cs * 4.5f + cs * 4.0f, cs * 10.0f)
             : Mathf.Max(cs * 7.0f, cs * 8.0f);
+        var isMobile = Application.isMobilePlatform;
+        var initialScaleMultiplier = isMobile ? KBackgroundScaleMultiplierMobile : KBackgroundScaleMultiplierDesktop;
+        var initialMinWidth = isMobile ? KBackgroundMinLocalWidthMobile : KBackgroundMinLocalWidthDesktop;
+        var initialMinHeight = isMobile ? KBackgroundMinLocalHeightMobile : KBackgroundMinLocalHeightDesktop;
+        bgWidth = Mathf.Max(bgWidth * initialScaleMultiplier, initialMinWidth);
+        bgHeight = Mathf.Max(bgHeight * initialScaleMultiplier, initialMinHeight);
+        bgWidth *= KBackgroundWidthScale;
 
         var background = GameObject.CreatePrimitive(PrimitiveType.Quad);
         background.name = "LabelBackground";
@@ -166,9 +180,7 @@ public class DigitronHotspotMarker : MonoBehaviour
             bgRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bgRenderer.receiveShadows = false;
             bgRenderer.allowOcclusionWhenDynamic = false;
-            var mat = m_BackgroundTexture != null
-                ? CreateOverlayTextureMaterial(m_BackgroundTexture)
-                : CreateOverlayColorMaterial(KLabelBackgroundColor);
+            var mat = CreateOverlayColorMaterial(KLabelBackgroundColor);
             if (mat != null) bgRenderer.material = mat;
             bgRenderer.sortingOrder = 4999;
             m_BackgroundRenderer = bgRenderer;
@@ -194,11 +206,7 @@ public class DigitronHotspotMarker : MonoBehaviour
 
         // If this hotspot was already fitted in a previous build, reuse the cached
         // size immediately — prevents size drift across open/close cycles.
-        if (!string.IsNullOrEmpty(m_HotspotId) && s_FittedBgScales.TryGetValue(m_HotspotId, out var cached))
-        {
-            m_BackgroundTransform.localScale = new Vector3(cached.x, cached.y, m_BackgroundTransform.localScale.z);
-            yield break;
-        }
+        // Recompute each time so size tweaks are visible immediately in Editor Play mode.
 
         // Use LOCAL mesh bounds — rotation-independent, unaffected by camera angle.
         var meshFilter = m_LabelTextMesh?.GetComponent<MeshFilter>();
@@ -228,8 +236,15 @@ public class DigitronHotspotMarker : MonoBehaviour
 
         if (Mathf.Abs(parentScaleX) < 0.0001f || Mathf.Abs(parentScaleY) < 0.0001f) yield break;
 
-        var scaleX = ((worldW + padX * 2f) / parentScaleX) * KBackgroundScaleMultiplier;
-        var scaleY = ((worldH + padY * 2f) / parentScaleY) * KBackgroundScaleMultiplier;
+        var isMobile = Application.isMobilePlatform;
+        var scaleMultiplier = isMobile ? KBackgroundScaleMultiplierMobile : KBackgroundScaleMultiplierDesktop;
+        var minWidth = (isMobile ? KBackgroundMinLocalWidthMobile : KBackgroundMinLocalWidthDesktop) * KBackgroundWidthScale;
+        var minHeight = isMobile ? KBackgroundMinLocalHeightMobile : KBackgroundMinLocalHeightDesktop;
+        var scaleX = ((worldW + padX * 2f) / parentScaleX) * scaleMultiplier;
+        var scaleY = ((worldH + padY * 2f) / parentScaleY) * scaleMultiplier;
+        scaleX *= KBackgroundWidthScale;
+        scaleX = Mathf.Max(scaleX, minWidth);
+        scaleY = Mathf.Max(scaleY, minHeight);
 
         m_BackgroundTransform.localScale = new Vector3(scaleX, scaleY, m_BackgroundTransform.localScale.z);
 
