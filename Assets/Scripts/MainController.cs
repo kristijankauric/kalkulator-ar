@@ -34,6 +34,7 @@ public class MainController : MonoBehaviour
     private float m_EditorPreviewScaleMultiplier = 1.3f;
     private bool m_WebDesktopPreviewInitialized;
     private bool m_MobileReady;
+    private bool m_MobilePlacementSuppressedOnce;
     private Coroutine m_MobileRotationEnforceRoutine;
     private Coroutine m_MobilePlacementSnapRoutine;
 
@@ -104,8 +105,18 @@ public class MainController : MonoBehaviour
         LogWebRuntime("OnPlacedOrigin received");
         if (!IsWebDesktopPreview() && !m_MobileReady)
         {
-            LogWebRuntime("OnPlacedOrigin suppressed — initial reset not yet done");
-            return;
+            // Failsafe: suppress only the first premature placement event.
+            // If readiness handshake fails on some devices, allow subsequent placement
+            // so the model can still spawn instead of getting stuck forever.
+            if (!m_MobilePlacementSuppressedOnce)
+            {
+                m_MobilePlacementSuppressedOnce = true;
+                LogWebRuntime("OnPlacedOrigin suppressed once — waiting for mobile ready handshake.");
+                return;
+            }
+
+            m_MobileReady = true;
+            LogWebRuntime("Mobile ready fallback activated from OnPlacedOrigin.");
         }
 #endif
 
@@ -709,6 +720,9 @@ public class MainController : MonoBehaviour
         var tracker = FindObjectOfType<WorldTracker>();
         if (!tracker)
         {
+            // Avoid permanent placement suppression even if tracker lookup fails once.
+            m_MobileReady = true;
+            LogWebRuntime("ForceInitialMobileResetRoutine: WorldTracker missing, enabling mobile ready fallback.");
             yield break;
         }
 

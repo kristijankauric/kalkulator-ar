@@ -222,3 +222,9 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
   - `SnapMobileDigitronToSurface` vracen na sigurni `Y-only` ground snap (bez X/Z korekcije).
   - `Assets/Scenes/Digitron AR Base 3.unity` -> `WorldTracker.placementIndicatorSettings.placed` vracen na `0`.
 - Zadrzan je post-placement re-snap kroz nekoliko frameova, ali samo vertikalno.
+
+## 21) Hotfix - placement readiness fallback (2026-04-01)
+- Uoceno: na nekim mobitelima `OnPlacedOrigin` moze ostati trajno suppressan ako `m_MobileReady` ne postane `true` na vrijeme.
+- Fix u `Assets/Scripts/MainController.cs`:
+  - `OnPlacedOrigin` sada suppressa samo prvi prerani event, a zatim aktivira fallback readiness i dopusta spawn.
+  - `ForceInitialMobileResetRoutine` postavlja `m_MobileReady = true` fallback i kad `WorldTracker` privremeno nije pronaden.
