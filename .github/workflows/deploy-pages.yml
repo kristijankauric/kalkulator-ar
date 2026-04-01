@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dorade
+      - v033-dorade-2
     paths:
       - "docs/**"
       - ".github/workflows/deploy-pages.yml"
@@ -40,3 +41,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
