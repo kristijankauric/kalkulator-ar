@@ -241,6 +241,8 @@ public class DigitronCalculatorController : MonoBehaviour
     private Vector3 m_PowerSwitchOffLocalPosition;
     private AnimationClip m_ExplicitOpenAnimationClip;
     private Vector2 m_InfoScrollPosition = Vector2.zero;
+    private GUIContent m_CachedDescContent = GUIContent.none;
+    private string m_CachedDescText;
 
     public void Initialize(GameObject modelInstance, Camera targetCamera, float targetSize, AnimationClip explicitOpenAnimationClip = null)
     {
@@ -478,7 +480,6 @@ public class DigitronCalculatorController : MonoBehaviour
             m_InfoDescStyle.fontSize    = Mathf.Clamp(Mathf.RoundToInt(fs * 0.020f), 11, 20);
             m_CloseButtonStyle.fontSize = Mathf.Clamp(Mathf.RoundToInt(fs * 0.042f), 18, 40);
         }
-        DrawDisplayOverlay();
         if (m_State != DigitronState.Unplaced) DrawToggleButton();
         DrawInfoBox();
     }
@@ -525,7 +526,12 @@ public class DigitronCalculatorController : MonoBehaviour
         var panelW    = Screen.width  * (isMobile ? 0.86f : 0.50f);
         var descW     = panelW - pad * 2f;
 
-        var descContent = new GUIContent(hotspot.Description);
+        if (m_CachedDescText != hotspot.Description)
+        {
+            m_CachedDescText = hotspot.Description;
+            m_CachedDescContent = new GUIContent(hotspot.Description);
+        }
+        var descContent = m_CachedDescContent;
         var descH = m_InfoDescStyle.CalcHeight(descContent, descW);
         descH = Mathf.Max(descH, Screen.height * 0.04f);
 
@@ -584,12 +590,6 @@ public class DigitronCalculatorController : MonoBehaviour
         {
             GUI.Label(viewRect, hotspot.Description, m_InfoDescStyle);
         }
-    }
-
-    private void DrawDisplayOverlay()
-    {
-        // Overlay intentionally disabled: display must be pure 3D text glued to calculator screen.
-        return;
     }
 
     private void ToggleOpenState()

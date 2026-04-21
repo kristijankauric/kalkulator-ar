@@ -27,6 +27,8 @@ public class DigitronHotspotMarker : MonoBehaviour
     private Texture2D m_BackgroundTexture;
     private Transform m_LabelTransform;
     private Vector3 m_LabelBaseLocalPosition;
+    private readonly List<Material> m_TrackedMaterials = new List<Material>();
+    private bool m_BoundsNeedExpand = true;
 
     private static readonly Color KLabelBackgroundColor = new Color(1f, 1f, 1f, 0.98f);
     private static Texture2D s_WhiteTexture;
@@ -68,6 +70,7 @@ public class DigitronHotspotMarker : MonoBehaviour
         m_Line.receiveShadows       = false;
         m_Line.generateLightingData = false;
         var mat = CreateOverlayColorMaterial(new Color(1f, 1f, 1f, 0.85f));
+        if (mat != null) m_TrackedMaterials.Add(mat);
         m_Line.material = mat;
         UpdateLine();
     }
@@ -180,8 +183,10 @@ public class DigitronHotspotMarker : MonoBehaviour
             bgRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             bgRenderer.receiveShadows = false;
             bgRenderer.allowOcclusionWhenDynamic = false;
-            var mat = CreateOverlayColorMaterial(KLabelBackgroundColor);
-            if (mat != null) bgRenderer.material = mat;
+            var mat = m_BackgroundTexture != null
+                ? CreateOverlayTextureMaterial(m_BackgroundTexture)
+                : CreateOverlayColorMaterial(KLabelBackgroundColor);
+            if (mat != null) { m_TrackedMaterials.Add(mat); bgRenderer.material = mat; }
             bgRenderer.sortingOrder = 4999;
             m_BackgroundRenderer = bgRenderer;
         }
@@ -190,7 +195,7 @@ public class DigitronHotspotMarker : MonoBehaviour
         if (r == null) return;
         m_LabelRenderer = r;
         var textMat = CreateOverlayTextMaterial(r.sharedMaterial, Color.black);
-        if (textMat != null) r.material = textMat;
+        if (textMat != null) { m_TrackedMaterials.Add(textMat); r.material = textMat; }
         r.sortingOrder = 5000;
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         r.receiveShadows    = false;
@@ -331,13 +336,14 @@ public class DigitronHotspotMarker : MonoBehaviour
             return string.Empty;
         }
 
-        var flattened = label.Replace('\n', ' ').Replace('\r', ' ');
-        while (flattened.Contains("  "))
+        var lines = label.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
         {
-            flattened = flattened.Replace("  ", " ");
+            var line = lines[i].Replace('\r', ' ');
+            while (line.Contains("  ")) line = line.Replace("  ", " ");
+            lines[i] = line.Trim();
         }
-
-        return flattened.Trim();
+        return string.Join("\n", lines).Trim('\n');
     }
 
     private void LateUpdate()
@@ -371,7 +377,13 @@ public class DigitronHotspotMarker : MonoBehaviour
                 ? toCamera.normalized * KLabelCameraNudge
                 : -targetCamera.transform.forward * KLabelCameraNudge;
             m_LabelTransform.position = worldPos;
-            ExpandTextMeshBounds();
+            if (m_BoundsNeedExpand)
+            {
+                ExpandTextMeshBounds();
+                var mf = m_LabelTextMesh?.GetComponent<MeshFilter>();
+                if (mf?.mesh != null && mf.mesh.bounds.size.magnitude > 0.001f)
+                    m_BoundsNeedExpand = false;
+            }
         }
 
         UpdateLine();
@@ -384,6 +396,13 @@ public class DigitronHotspotMarker : MonoBehaviour
     }
 
     private void OnMouseDown() => OnClick();
+
+    private void OnDestroy()
+    {
+        foreach (var mat in m_TrackedMaterials)
+            if (mat != null) Destroy(mat);
+        m_TrackedMaterials.Clear();
+    }
 
     private Camera ResolveTargetCamera()
     {

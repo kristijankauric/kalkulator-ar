@@ -185,7 +185,7 @@ Kad se donese nova stabilna odluka (platforma, scena, runtime flow, model source
 - Svaki novi deploy (`commit + push + build/deploy`) mora dobiti novu verziju.
 - Verzija se prikazuje na dnu ekrana malim slovima kao `vX.XX` (build badge u `docs/index.html`).
 - Početna tocka ovog pravila je verzija `0.31`.
-- Trenutno posljednji potvrden deploy je verzija `0.42`.
+- Trenutno posljednji potvrden deploy je verzija `0.43`.
 - Svaki sljedeci deploy povecava broj verzije (npr. `0.43`, `0.44`, ...), i isti broj se koristi u:
   - `APP_BUILD_VERSION` u `docs/index.html`
   - `productVersion` u Unity loader konfiguraciji (u istom fileu)
