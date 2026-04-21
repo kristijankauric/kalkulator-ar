@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - dorade
-      - v033-dorade-2
+      - v*-dorade-*
     paths:
       - "docs/**"
       - ".github/workflows/deploy-pages.yml"
